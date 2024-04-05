@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Global variables
-CUSTOM_BIN_DIR="$HOME/.local/bin" # Define a custom bin directory
 UNRUGGABLE_FOLDER="$HOME/.config/solana/unrugabble"
 ADDRESS_BOOK_FILE="$HOME/.config/solana/unrugabble/addressBook.txt"
 UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unrgbpN7XGMQKbbnMYoqvoFbcnVKcaaXVJD2vSrmnUJ.json"
 CONFIG_FILE="$HOME/.config/solana/cli/config.yml"
 UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
 DEFAULT_KEYS_DIR="$HOME/.config/solana"
+SCRIPT_NAME="unruggable"
+SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
 
 # Function to detect the operating system
 detect_os() {
@@ -90,7 +91,7 @@ check_and_create_unrugabble_folder() {
     if [ ! -d "$UNRUGGABLE_FOLDER" ]; then
         mkdir -p "$UNRUGGABLE_FOLDER"
         if [ $? -eq 0 ]; then
-            echo "Unurggable folder created successfully."
+            echo "Unruggable folder created successfully."
         else
             echo "Error: Failed to create the folder $UNRUGGABLE_FOLDER."
             exit 1
@@ -137,11 +138,46 @@ EOF
 
     echo "Creating custom Solana keypair file..."
     echo "$keypair_contents" > "$UNRUGGABLE_WALLET"
-    solana config set -k "$UNRUGGABLE_WALLET"
-
+    config_output=$(solana config set -k "$UNRUGGABLE_WALLET")
     echo "Custom Solana configuration and keypair setup complete."
 }
 
+# Ensure the script is in the correct directory and executable
+ensure_script_location_and_executability() {
+    if [ "$(basename $0)" != "$SCRIPT_NAME" ]; then
+        # The script is not in the desired location, so move it
+        echo "Moving the script to $SCRIPT_PATH and making it executable..."
+        cp "$0" "$SCRIPT_PATH"
+        chmod +x "$SCRIPT_PATH"
+        echo "Script moved and made executable."
+        
+        # Detect the operating system
+        detect_os
+
+        # Determine which profile file to update based on OS and potentially shell
+        PROFILE_FILE="$HOME/.bashrc" # default
+        if [[ $OS == "macOS" ]]; then
+            # macOS users might use zsh by default
+            PROFILE_FILE="$HOME/.zshrc"
+        fi
+
+        # Now create an alias and add it to the profile for persistence
+        if ! grep -q "alias $SCRIPT_NAME=" "$PROFILE_FILE"; then
+            echo "Adding alias to $PROFILE_FILE..."
+            echo "alias $SCRIPT_NAME='$SCRIPT_PATH'" >> "$PROFILE_FILE"
+            
+            # Source the profile file to make the alias take effect immediately
+            # Note: This will only affect the current terminal session
+            source "$PROFILE_FILE"
+            echo "Alias added and sourced. You can now use '$SCRIPT_NAME' command."
+        else
+            echo "Alias for '$SCRIPT_NAME' already exists in $PROFILE_FILE."
+        fi
+
+        echo "Unruggable has been succesfully set up. Please restart your terminal."
+        exit 0
+    fi
+}
 
 
 # Function to run all pre-launch checks
@@ -164,6 +200,7 @@ run_pre_launch_checks() {
     check_and_create_unrugabble_folder
     create_and_set_custom_solana_config
     check_and_create_address_book
+    ensure_script_location_and_executability
     echo "All checks passed. Launching Unruggable..."
 }
 
