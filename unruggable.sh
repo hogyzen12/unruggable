@@ -175,6 +175,8 @@ ensure_script_location_and_executability() {
             echo "Alias for '$SCRIPT_NAME' already exists in $PROFILE_FILE."
         fi
 
+        create_and_set_custom_solana_config
+
         echo "Unruggable has been succesfully set up."
         echo "Open any terminal and simply type unruggable to start the wallet."
         #exit 0
@@ -200,7 +202,6 @@ run_pre_launch_checks() {
     check_spl_token_cli_installed
 
     check_and_create_unrugabble_folder
-    create_and_set_custom_solana_config
     check_and_create_address_book
     ensure_script_location_and_executability
     echo "All checks passed. Launching Unruggable..."
@@ -531,9 +532,16 @@ display_tokens_and_send() {
         return
     fi
 
+    #read -p "Enter the number of the token you wish to send: " token_selection
     echo "--------------------------------------------------------------------------------"
-    echo "Select the token you wish to send:"
-    read -p "Enter the number of the token: " token_selection
+    echo "Enter the number of the token you wish to send, or type 'home' to return to the home screen:"
+    read token_selection
+
+    # Check if user wants to return to the home screen
+    if [[ $token_selection == "home" ]]; then
+        echo "Returning to the home screen."
+        return
+    fi
 
     if [[ ! $token_selection =~ ^[0-9]+$ ]] || [ $token_selection -ge $index ]; then
         echo "Invalid selection."
@@ -754,8 +762,14 @@ display_nfts() {
     fi
 
     echo "--------------------------------------------------------------------------------"
-    echo "Select the token you wish to send:"
-    read -p "Enter the number of the token: " token_selection
+    echo "Enter the number of the NFT you want to send, or type 'home' for the home screen:"
+    read token_selection
+
+    # Check if user wants to return to the home screen
+    if [[ $token_selection == "home" ]]; then
+        echo "Returning to the home screen."
+        return
+    fi
 
     if [[ ! $token_selection =~ ^[0-9]+$ ]] || [ $token_selection -ge $index ]; then
         echo "Invalid selection."
@@ -766,7 +780,163 @@ display_nfts() {
     selected_mint_address=${mint_addresses[$token_selection]}
     selected_balance=${balances[$token_selection]}
 
-    echo "You have selected to send $selected_token_name."   
+    echo "You have selected to send $selected_token_name."
+    # Now, implement the 'where to' structure similar to send_sol
+    while true; do
+        echo "How would you like to send $selected_token_name?"
+        echo "1 - Enter a Solana address."
+        echo "2 - Select from Unruggable loaded wallets."
+        echo "3 - Select from your address book."
+        echo "9 - Return to home screen."
+        read -p "Enter your choice (1, 2, 3, or 9): " send_choice
+
+        case $send_choice in
+            1)
+                read -p "Enter the recipient's address: " recipient_address
+                # Print the static message part
+                echo -n "You entered the address:"
+                # Print the recipient address in color
+                print_colored_address "$recipient_address"
+                echo ""
+                ;;
+            2)
+                # Reuse the display_available_wallets logic but for selection purpose
+                config_output=$(solana config get)
+                keypair_dir=$(echo "$config_output" | grep 'Keypair Path' | awk '{print $3}' | xargs dirname)
+                
+                echo "Available Wallets:"
+                local i=0
+                declare -a wallet_paths # Use a simple array to store paths
+
+                # Function to process directories and find wallets
+                process_directory() {
+                    local directory=$1
+                    if [ -d "$directory" ]; then
+                        for keypair in "$directory"/*.json; do
+                            # Check if the file exists to avoid the case where the glob doesn't match anything
+                            if [ -e "$keypair" ]; then
+                                wallet_address=$(solana address -k "$keypair")
+                                balance=$(solana balance "$wallet_address")
+                                echo "$i. $wallet_address ($balance)"
+                                wallet_paths+=("$keypair")
+                                i=$((i+1))
+                            fi
+                        done
+                    fi
+                }
+
+                # Check and process each unique directory
+                if [[ "$keypair_dir" != "$UNRUGGABLE_FOLDER" && "$keypair_dir" != "$DEFAULT_KEYS_DIR" ]]; then
+                    process_directory "$keypair_dir"
+                fi
+                process_directory "$UNRUGGABLE_FOLDER"
+                process_directory "$DEFAULT_KEYS_DIR"
+
+                read -p "Select the number of the wallet you want to send SOL to: " wallet_selection
+
+                if [[ $wallet_selection =~ ^[0-9]+$ ]] && [ $wallet_selection -ge 0 ] && [ $wallet_selection -lt ${#wallet_paths[@]} ]; then
+                    recipient_address=${wallet_paths[$wallet_selection]}
+                    echo "You have selected to send SOL to $recipient_address"
+                else
+                    echo "Invalid selection. Returning to the main menu."
+                    return
+                fi
+                ;;
+            3)
+                echo "Select a recipient from the address book:"
+                local i=0
+                declare -a book_entries
+                while IFS= read -r line; do
+                    address=$(echo $line | awk '{print $1}')
+                    tag=$(echo $line | cut -d ' ' -f 2-)
+                    echo "$i. $tag ($address)"
+                    book_entries[i]=$address
+                    i=$((i+1))
+                done < "$ADDRESS_BOOK_FILE"
+
+                read -p "Enter the number of the recipient: " book_selection
+                if [[ $book_selection =~ ^[0-9]+$ ]] && [ $book_selection -ge 0 ] && [ $book_selection -lt ${#book_entries[@]} ]; then
+                    recipient_address=${book_entries[$book_selection]}
+                    echo "You have selected the address:"
+                    print_colored_address "$recipient_address"
+                    echo ""
+                else
+                    echo "Invalid selection. Please try again."
+                    continue
+                fi
+                ;;
+            9)
+                echo "Returning to home screen."
+                return
+                ;;
+            *)
+                echo "Invalid choice. Please try again."
+                continue
+                ;;
+        esac
+
+        # Assuming the address could be valid, proceed to check the balance
+        recipient_balance=$(solana balance "$recipient_address" 2>&1)
+        # Check if the solana command succeeded
+        if [[ $? -ne 0 ]]; then
+            echo "Error fetching balance. Please ensure the address is correct. Error details: $recipient_balance"
+            return
+        else
+            echo "Recipient owns   : $recipient_balance"
+            # Extract all mint addresses for tokens owned by the wallet
+            output=$(spl-token accounts --output json-compact --owner "$recipient_address")
+            owned_mints=$(echo "$output" | jq -r '.accounts[] | select(.tokenAmount.uiAmount > 0) | .mint')
+
+            # Check if owned_mints is not empty
+            if [ -n "$owned_mints" ]; then
+                # Process each owned mint for tokens
+                echo "$owned_mints" | while read -r mint_address; do
+                    token_info=$(grep -i "$mint_address" tokens.txt)
+                    if [ ! -z "$token_info" ]; then
+                        token_name=$(echo "$token_info" | awk -F, '{print $2}')
+                        balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
+                        echo "Recipient owns token:  $balance $token_name"
+                    fi
+                done
+            else
+                echo ""
+            fi
+
+            # Check if owned_mints is not empty
+            if [ -n "$owned_mints" ]; then
+                # Process each owned mint for tokens
+                echo "$owned_mints" | while read -r mint_address; do
+                    nft_info=$(grep -i "$mint_address" nfts.txt)
+                    if [ ! -z "$token_info" ]; then
+                        token_name=$(echo "$nft_info" | awk -F, '{print $2}')
+                        balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
+                        echo "Recipient owns token:  $balance $token_name"
+                    fi
+                done
+            else
+                echo ""
+            fi
+        fi
+
+        # Assuming the address could be valid, proceed with sending logic
+        echo "Sending $selected_token_name to $recipient_address..."
+        # Implement the SPL token transfer command here
+        spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address "1" $recipient_address
+
+        echo "Transaction completed."
+        # Check if the address is already in the address book
+        if grep -q "$recipient_address" "$ADDRESS_BOOK_FILE"; then
+            echo "This address is already in your address book."
+        else
+            read -p "Press Enter to go back home or type 'add' to add this address to your address book: " post_tx_choice
+            if [[ $post_tx_choice == "add" ]]; then
+                read -p "Enter a tag for this address: " tag
+                echo "$recipient_address $tag" >> "$ADDRESS_BOOK_FILE"
+                echo "Address added to your address book."
+            fi
+        fi
+        break
+    done
 }
 
 # Function to create a new stake account
@@ -965,22 +1135,27 @@ create_new_wallet() {
             echo "These prefixes help you quickly identify the purpose of each wallet, simplifying wallet management."
             echo ""
             while true; do
-                read -p "Enter your desired prefix (up to 4 characters, Base58): " prefix
-                if [[ ${#prefix} -le 4 ]]; then
+                read -p "Enter your desired prefix (up to 4 characters, Base58, excluding '0', 'O', 'l'): " prefix
+                if [[ ${#prefix} -le 4 && ! $prefix =~ [0Ol] ]]; then
                     break
+                elif [[ $prefix =~ [0Ol] ]]; then
+                    echo "Error: The prefix cannot contain '0', 'O', or 'l'."
                 else
                     echo "Error: Prefix must be 4 characters or less."
+                fi
+                # Optional: Prompt to continue or exit
+                read -p "Press enter to try new prefix or type exit to return to home screen: " decision
+                if [[ $decision == "exit" ]]; then
+                    echo "Exiting..."
+                    return
                 fi
             done
 
             echo "Starting vanity keypair grind for prefix '$prefix'..."
             # Capture the output of solana-keygen grind to find the generated keypair filename
             grind_output=$(solana-keygen grind --starts-with "$prefix":1)
-            echo "$grind_output"
-            
             # Extract the filename from the output
             keypair_file=$(echo "$grind_output" | grep -o '[^ ]*.json')
-            echo "Vanity keypair generation complete. File: $keypair_file"
 
             # Move the keypair file to the correct directory if it's not already there
             if [[ $(dirname "$keypair_file") != "$keypair_dir" ]]; then
@@ -989,7 +1164,7 @@ create_new_wallet() {
             fi
 
             new_wallet_address=$(solana address -k "$keypair_file")
-            echo "New wallet address: $new_wallet_address"
+            echo "Vanity keypair generation complete.  New wallet address: $new_wallet_address"
             new_wallet_filename="${new_wallet_address}.json"
             ;;
         2)
@@ -1039,6 +1214,7 @@ create_new_wallet() {
             else
                 echo "Only a seed phrase will be generated."
                 echo "Remember, without a keypair file, you will need to regenerate your keys from the seed phrase for transactions."
+                echo "DO NOT FUND THIS WALLET UNLESS YOU HAVE THE SEED WORDS WRITTEN DOWN."
                 # Generate the new wallet without creating a keypair file
                 solana-keygen new --no-passphrase --no-outfile
             fi
@@ -1053,7 +1229,7 @@ create_new_wallet() {
     esac
 
     # After wallet creation, ask the user if they want to fund the new wallet or return to the home screen
-    echo "Do you want to fund the newly created wallet or return to the home screen?"
+    echo "Do you want to fund and then switch to the newly created wallet or return to the home screen?"
     echo "1. Fund the new wallet"
     echo "2. Return to the home screen"
     read -p "Enter your choice (1 or 2): " post_creation_choice
@@ -1116,11 +1292,11 @@ display_available_wallets() {
     process_directory "$UNRUGGABLE_FOLDER"
     process_directory "$DEFAULT_KEYS_DIR"
 
-    echo "Press 'h' to return to the home screen" 
+    echo "Type 'home' to return to the home screen" 
     echo "Press the number of the wallet you want to switch to, i.e. '4' "
     read -p "Enter your choice: " choice
 
-    if [ "$choice" = "h" ]; then
+    if [ "$choice" = "home" ]; then
         return
     elif [[ "$choice" =~ ^[0-9]+$ ]]; then
         switch_wallet "$choice"
@@ -1361,10 +1537,9 @@ draw_ui() {
     echo "|   0. Receive SOL                                                             |"
     echo "|   1. Send SOL                                                                |"
     echo "|   2. Send Tokens                                                             |"
-    echo "|   3. Display NFTs                                                            |"
+    echo "|   3. Display and Send NFTs                                                   |"
     echo "|   4. Display Available Wallets and Switch                                    |"
     echo "|   5. Stake SOL                                                               |"
-    echo "|   6. Liquid Stake SOL                                                        |"
     echo "|   7. Create New Wallet                                                       |"
     echo "|   8. Set Custom RPC URL                                                      |"
     echo "|   9. Exit                                                                    |"
@@ -1385,7 +1560,6 @@ handle_input() {
         3) display_nfts ;;
         4) display_available_wallets ;;
         5) stake_sol ;;
-        6) liquid_stake_sol ;;
         7) create_new_wallet ;;
         8) set_custom_rpc ;;
         9) exit 0 ;;
