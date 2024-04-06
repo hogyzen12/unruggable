@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Global variables
+RPC="https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
 UNRUGGABLE_FOLDER="$HOME/.config/solana/unrugabble"
 ADDRESS_BOOK_FILE="$HOME/.config/solana/unrugabble/addressBook.txt"
 UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unrgbpN7XGMQKbbnMYoqvoFbcnVKcaaXVJD2vSrmnUJ.json"
@@ -174,8 +175,9 @@ ensure_script_location_and_executability() {
             echo "Alias for '$SCRIPT_NAME' already exists in $PROFILE_FILE."
         fi
 
-        echo "Unruggable has been succesfully set up. Please restart your terminal."
-        exit 0
+        echo "Unruggable has been succesfully set up."
+        echo "Open any terminal and simply type unruggable to start the wallet."
+        #exit 0
     fi
 }
 
@@ -310,11 +312,7 @@ send_sol() {
         echo "How would you like to send SOL?"
         echo "1 - Enter a Solana address."
         echo "2 - Select from Unruggable loaded wallets."
-        if [ -f "$ADDRESS_BOOK_FILE" ]; then
-            echo "3 - Select from your address book."
-        else
-            echo "3 - Initialize address book."
-        fi
+        echo "3 - Select from your address book."
         echo "9 - Return to home screen."
         read -p "Enter your choice (1, 2, 3, or 9): " send_choice
 
@@ -494,10 +492,6 @@ display_tokens_and_send() {
     # Call the command and store the result in a variable
     output=$(spl-token accounts --output json-compact --owner "$wallet_address")
 
-    echo "--------------------------------------------------------------------------------"
-    echo "|                           Token Balances                                     |"
-    echo "--------------------------------------------------------------------------------"
-
     declare -a mint_addresses
     declare -a token_names
     declare -a balances
@@ -507,6 +501,16 @@ display_tokens_and_send() {
 
     # Extract all mint addresses for tokens owned by the wallet
     owned_mints=$(echo "$output" | jq -r '.accounts[] | select(.tokenAmount.uiAmount > 0) | .mint')
+
+    # Check if owned_mints is not empty
+    if [ -z "$owned_mints" ]; then
+        echo "No tokens found in the wallet. Returning to the home screen."
+        return
+    fi
+
+    echo "--------------------------------------------------------------------------------"
+    echo "|                           Token Balances                                     |"
+    echo "--------------------------------------------------------------------------------"
 
     # Process each owned mint for tokens using process substitution
     while IFS= read -r mint_address; do
@@ -681,12 +685,10 @@ display_tokens_and_send() {
             fi
         fi
 
-
-
         # Assuming the address could be valid, proceed with sending logic
-        echo "Sending $amount_to_send $selected_token_name to $recipient_address..."
+        echo "Sending $selected_token_name to $recipient_address..."
         # Implement the SPL token transfer command here
-        # Example: spl-token transfer --fund-recipient $selected_mint_address $amount_to_send $recipient_address
+        spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address $amount_to_send $recipient_address
 
         echo "Transaction completed."
         # Check if the address is already in the address book
@@ -708,13 +710,9 @@ display_nfts() {
     # Get the current wallet address
     wallet_address=$(solana address)
     
-    echo "Fetching tokens for wallet: $wallet_address"
+    echo "Fetching NFTs for wallet: $wallet_address"
     # Call the command and store the result in a variable
     output=$(spl-token accounts --output json-compact --owner "$wallet_address")
-
-    echo "--------------------------------------------------------------------------------"
-    echo "|                               NFTs                                           |"
-    echo "--------------------------------------------------------------------------------"
 
     declare -a mint_addresses
     declare -a token_names
@@ -725,6 +723,16 @@ display_nfts() {
 
     # Extract all mint addresses for tokens owned by the wallet
     owned_mints=$(echo "$output" | jq -r '.accounts[] | select(.tokenAmount.uiAmount > 0) | .mint')
+
+    # Check if owned_mints is not empty
+    if [ -z "$owned_mints" ]; then
+        echo "No NFTs found in the wallet. Returning to the home screen."
+        return
+    fi
+
+    echo "--------------------------------------------------------------------------------"
+    echo "|                               NFTs                                           |"
+    echo "--------------------------------------------------------------------------------"
 
     # Process each owned mint for tokens using process substitution
     while IFS= read -r mint_address; do
@@ -758,11 +766,7 @@ display_nfts() {
     selected_mint_address=${mint_addresses[$token_selection]}
     selected_balance=${balances[$token_selection]}
 
-    echo "You have selected to send $selected_token_name with balance $selected_balance."
-
-    read -p "Enter the amount of $selected_token_name to send: " amount_to_send
-
-    
+    echo "You have selected to send $selected_token_name."   
 }
 
 # Function to create a new stake account
@@ -877,7 +881,7 @@ manage_staked_sol() {
     for stake_account_file in "$UNRUGGABLE_STAKING"/"$wallet_address"*.json; do
         stake_account_address=$(solana address -k "$stake_account_file")
         # Fetch stake account info and filter for relevant lines
-        stake_account_info=$(solana stake-account "$stake_account_address" --url "https://api.mainnet-beta.solana.com/" | grep -E "Balance:|Stake account is")
+        stake_account_info=$(solana stake-account "$stake_account_address" --url $RPC | grep -E "Balance:|Stake account is")
         echo "$i - Stake Account: $stake_account_address"
         # Use a loop to print each line of filtered stake account info
         while IFS= read -r line; do
@@ -1141,18 +1145,60 @@ switch_wallet() {
 }
 
 set_custom_rpc() {
-    echo "Enter your custom RPC URL (e.g., https://api.mainnet-beta.solana.com):"
-    read -p "RPC URL: " custom_rpc_url
-    if [[ -n "$custom_rpc_url" ]]; then
-        solana config set --url "$custom_rpc_url"
-        if [ $? -eq 0 ]; then
-            echo "Custom RPC URL set successfully."
-        else
-            echo "Failed to set custom RPC URL."
-        fi
-    else
-        echo "No RPC URL entered. Returning to the main menu."
+    # Get current RPC URL# Get the current config
+    config_output=$(solana config get)
+
+    # Extract the current RPC URL
+    # Get the current config
+    config_output=$(solana config get)
+
+    # Extract the current RPC URL
+    current_rpc=$(echo "$config_output" | grep 'RPC URL' | awk '{print $3}')
+    echo "Current RPC: $current_rpc"
+
+    # Warn if using the default Solana RPC
+    if [[ "$current_rpc" == "https://api.mainnet-beta.solana.com" ]]; then
+        echo "Warning: You are using the default Solana RPC. It's recommended to use a custom RPC URL."
     fi
+
+    local valid_url=0
+    while [[ $valid_url -eq 0 ]]; do
+        # Prompt for custom RPC URL
+        echo "Enter your custom RPC URL (e.g., helius/quicknode link):"
+        read -p "RPC URL: " custom_rpc_url
+
+        # Basic URL validation
+        if [[ "$custom_rpc_url" =~ ^https?://.+ ]]; then
+            valid_url=1
+        else
+            echo "Invalid URL format. Please ensure your URL starts with http:// or https:// and is complete."
+            continue
+        fi
+
+        if [[ "$custom_rpc_url" == "https://api.mainnet-beta.solana.com" ]]; then
+            echo "Warning: You will be using the default Solana RPC. It's recommended to use the RPC URL provided by unruggable on boot."
+        fi
+
+        # Attempt to set the new RPC URL
+        solana config set --url "$custom_rpc_url" &> /dev/null
+        # Verify the new RPC URL by checking the balance
+        solana balance &> /dev/null
+        if [ $? -eq 0 ]; then
+            echo "Custom RPC URL set successfully and verified:"
+            echo "$custom_rpc_url"
+        else
+            echo "Failed to verify the custom RPC URL. Resetting to unruggable default RPC URL."
+            # Reset to the fallback RPC URL
+            solana config set --url "$fallback_rpc" &> /dev/null
+            if [ $? -eq 0 ]; then
+                echo "RPC URL has been reset to the fallback URL: $fallback_rpc"
+            else
+                echo "Failed to reset the RPC URL to the fallback. Please check your Solana CLI setup."
+            fi
+            # Since the provided URL failed, prompt the user again.
+            valid_url=0
+        fi
+    done
 }
 
 
