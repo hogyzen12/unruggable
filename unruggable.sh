@@ -91,6 +91,7 @@ check_spl_token_cli_installed() {
 check_and_create_unrugabble_folder() {
     if [ ! -d "$UNRUGGABLE_FOLDER" ]; then
         mkdir -p "$UNRUGGABLE_FOLDER"
+        chmod 700 "$UNRUGGABLE_FOLDER"
         if [ $? -eq 0 ]; then
             echo "Unruggable folder created successfully."
         else
@@ -149,7 +150,7 @@ ensure_script_location_and_executability() {
         # The script is not in the desired location, so move it
         echo "Moving the script to $SCRIPT_PATH and making it executable..."
         cp "$0" "$SCRIPT_PATH"
-        chmod +x "$SCRIPT_PATH"
+        chmod u+x "$SCRIPT_PATH"
         echo "Script moved and made executable."
         
         # Detect the operating system
@@ -317,11 +318,12 @@ send_sol() {
         echo "9 - Return to home screen."
         read -p "Enter your choice (1, 2, 3, or 9): " send_choice
 
+        # Extract the Keypair Path from the solana config
+        config_output=$(solana config get)
+        keypair_path=$(echo "$config_output" | grep "Keypair Path" | awk '{ print $NF }')
+        keypair_dir=$(echo "$config_output" | grep 'Keypair Path' | awk '{print $3}' | xargs dirname)
+
         if [[ $send_choice -eq 2 ]]; then
-            # Reuse the display_available_wallets logic but for selection purpose
-            config_output=$(solana config get)
-            keypair_dir=$(echo "$config_output" | grep 'Keypair Path' | awk '{print $3}' | xargs dirname)
-            
             echo "Available Wallets:"
             local i=0
             declare -a wallet_paths # Use a simple array to store paths
@@ -464,11 +466,28 @@ send_sol() {
             transfer_command="solana transfer --allow-unfunded-recipient --with-compute-unit-price 0.00001 $recipient_address $amount"
         fi
 
-        # Execute the transfer
-        echo "Executing transfer..."
-        eval $transfer_command
+        # Initialize a flag to track which transaction method is used
+        use_hermes_flag=0
 
-        echo "Transaction completed."
+        # Check for calypso/hermes.js existence
+        if [[ -d "calypso" && -f "calypso/hermes.js" ]]; then
+            echo "The Hermes tool is available for transactions."
+            read -p "Would you like to use the Hermes tool for this transaction? (yes/no): " use_hermes
+            if [[ $use_hermes == "yes" ]]; then
+                # Execute the transaction with Hermes
+                echo "Executing transaction with Hermes..."
+                node calypso/hermes.js "$amount" "$recipient_address" "$keypair_path"
+                echo "Transaction completed with Hermes."
+                use_hermes_flag=1
+            fi
+        fi
+
+        # Check if Hermes was not used, then proceed with Solana transfer
+        if [[ $use_hermes_flag -eq 0 ]]; then
+            echo "Executing transfer with Solana CLI..."
+            eval $transfer_command
+            echo "Transaction completed with Solana CLI."
+        fi
         
         # Check if the address is already in the address book
         if grep -q "$recipient_address" "$ADDRESS_BOOK_FILE"; then
