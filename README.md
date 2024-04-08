@@ -45,11 +45,11 @@ Once the terminal is open, paste each command below into the terminal and press 
    ```
 2. **Clone the Unruggable Repository**:
    ```bash
-   git clone [[Your Unruggable Repository URL](https://github.com/hogyzen12/unruggable)] 
+   git clone https://github.com/hogyzen12/unruggable
    ```
 3. **Navigate to the Unruggable Folder**:
    ```bash
-   cd unrugabble && chmod u+x unrugabble.sh
+   cd unruggable && chmod u+x unruggable.sh
    ```
 4. **Launch Unruggable**:
    ```bash
