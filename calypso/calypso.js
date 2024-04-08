@@ -53,8 +53,7 @@ async function getJupiterSwapInstructions(fromAccountPublicKey, inputMint, outpu
     return response.json();
 }
 
-async function createPaymentTx(inputMint, outputMint, amountLamports, destinationAddress, slippageBps) {
-    const keypairPath = "/Users/hogyzen12/.config/solana/6tBou5MHL5aWpDy6cgf3wiwGGK2mR8qs68ujtpaoWrf2.json";
+async function createPaymentTx(inputMint, outputMint, amountLamports, slippageBps, keypairPath) {
     const keypairData = await fs.readFile(keypairPath, { encoding: 'utf8' });
     const secretKey = Uint8Array.from(JSON.parse(keypairData));
     const fromAccount = web3.Keypair.fromSecretKey(secretKey);
@@ -130,7 +129,7 @@ if (args.length < 3) {
     process.exit(1);
 }
 
-const [inputMint, outputMint, amountLamports, slippageBps = 500] = args;
+const [inputMint, outputMint, amountLamports, slippageBps = 500, keypairPath] = args;
 
 // Validate amount
 if (isNaN(amountLamports) || amountLamports <= 0) {
@@ -139,4 +138,4 @@ if (isNaN(amountLamports) || amountLamports <= 0) {
 }
 
 // Run the function and catch any errors
-createPaymentTx(inputMint, outputMint, parseInt(amountLamports), slippageBps).catch(console.error);
+createPaymentTx(inputMint, outputMint, parseInt(amountLamports), slippageBps, keypairPath).catch(console.error);
