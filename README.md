@@ -1,4 +1,4 @@
-# Unruggable Wallet Setup Guide
+# Unruggable Setup Guide
 
 Welcome to the Unruggable. 
 This will guide you in setting up Unruggable on your computer and beginning your self custody journey on Solana.
