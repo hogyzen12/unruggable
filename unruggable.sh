@@ -10,6 +10,10 @@ UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
 DEFAULT_KEYS_DIR="$HOME/.config/solana"
 SCRIPT_NAME="unruggable"
 SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
+SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
+
+#qrencode has binaries ready
+#jq build from source tarball
 
 # Function to detect the operating system
 detect_os() {
@@ -71,11 +75,79 @@ check_and_install_package() {
 # Function to check if Solana CLI is installed
 check_solana_cli_installed() {
     if ! command -v solana &> /dev/null; then
-        echo "Error: Solana CLI could not be found."
-        echo "Please install the Solana CLI. Visit https://docs.solana.com/cli/install-solana-cli-tools for instructions."
-        exit 1
+        echo "Solana CLI not found - proceeding to install using the install script."
+
+        # Attempt to install using the official Solana install script
+        if sh -c "$(curl -sSfL https://release.solana.com/v1.18.4/install)"; then
+            # Attempt to automatically add Solana to PATH using the suggestion from the install script
+            # This assumes the install script provides a line to export PATH
+            echo "Attempting to add Solana CLI to PATH automatically..."
+            export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+            
+            # Add to .profile or .bash_profile for persistence across sessions
+            if ! grep -q 'solana/install/active_release/bin' "$HOME/.profile" 2>/dev/null && \
+               ! grep -q 'solana/install/active_release/bin' "$HOME/.bash_profile" 2>/dev/null; then
+                echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> "$HOME/.profile"
+            fi
+
+            # Reload profile to ensure PATH update takes effect in the current session
+            source "$HOME/.profile" 2>/dev/null || source "$HOME/.bash_profile" 2>/dev/null
+
+            echo "Solana CLI installed successfully."
+        else
+            echo "Failed to install Solana CLI using the install script. Attempting to install using pre-built binaries..."
+
+            # Fallback to pre-built binaries installation
+            # Determine the correct binary to download based on the OS
+            case "$OS" in
+                Linux)
+                    SOLANA_BINARY="solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+                    ;;
+                macOS)
+                    SOLANA_BINARY="solana-release-x86_64-apple-darwin.tar.bz2"
+                    ;;
+                *)
+                    echo "Unsupported OS for automatic Solana CLI installation."
+                    return 1
+                    ;;
+            esac
+
+            # Define the base URL for Solana releases
+            SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
+
+            # Download the appropriate binary
+            echo "Downloading Solana CLI for $OS..."
+            curl -L "$SOLANA_RELEASES_URL/$SOLANA_BINARY" -o "/tmp/$SOLANA_BINARY"
+
+            # Extract the binary
+            echo "Extracting Solana CLI..."
+            tar jxf "/tmp/$SOLANA_BINARY" -C "/tmp"
+
+            # Move to a more permanent location
+            echo "Installing Solana CLI..."
+            mkdir -p "$HOME/.local/bin"
+            cp -r "/tmp/solana-release/bin/"* "$HOME/.local/bin/"
+
+            # Add to PATH if not already present
+            if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+                echo "Adding Solana CLI to PATH..."
+                echo 'export PATH=$PATH:$HOME/.local/bin' >> "$HOME/.profile"
+                export PATH="$PATH:$HOME/.local/bin"
+            fi
+
+            # Clean up
+            rm -rf "/tmp/$SOLANA_BINARY" "/tmp/solana-release"
+
+            # Verify installation
+            if ! command -v solana &> /dev/null; then
+                echo "Failed to install Solana CLI."
+                return 1
+            fi
+            echo "Solana CLI installed successfully using pre-built binaries."
+        fi
+    else
+        echo "Solana CLI is already installed."
     fi
-    echo "solana cli is installed"
 }
 
 # Function to check if SPL Token CLI is installed
