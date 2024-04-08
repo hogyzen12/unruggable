@@ -45,7 +45,7 @@ Once the terminal is open, paste each command below into the terminal and press 
    ```
 2. **Launch Unruggable**:
    ```bash
-   cd unruggable && chmod u+x unruggable.sh && ./unruggable
+   cd unruggable && chmod u+x unruggable.sh && ./unruggable.sh
    ```
 ## Usage
 
