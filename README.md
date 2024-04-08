@@ -39,21 +39,13 @@ Open up a terminal.
 
 Once the terminal is open, paste each command below into the terminal and press enter.
 
-1. **Update and Upgrade Your Linux Distribution**:
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
-2. **Clone the Unruggable Repository**:
+1. **Clone the Unruggable Repository**:
    ```bash
    git clone https://github.com/hogyzen12/unruggable
    ```
-3. **Navigate to the Unruggable Folder**:
+2. **Launch Unruggable**:
    ```bash
-   cd unruggable && chmod u+x unruggable.sh
-   ```
-4. **Launch Unruggable**:
-   ```bash
-   ./unruggable
+   cd unruggable && chmod u+x unruggable.sh && ./unruggable
    ```
 ## Usage
 
