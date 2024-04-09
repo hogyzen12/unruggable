@@ -46,24 +46,61 @@ detect_processor() {
     
 }
 
+# Function to ensure Homebrew is installed on macOS
+# Function to ensure Homebrew is installed on macOS
+ensure_homebrew_installed() {
+    if ! command -v brew &> /dev/null; then
+        echo "Homebrew not found. Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # Determine the shell's configuration file. Default to .zshrc for macOS.
+        local shell_profile="$HOME/.zshrc"
+        
+        # Check if the shell profile file exists, create if not
+        if [ ! -f "$shell_profile" ]; then
+            echo "Creating $shell_profile since it doesn't exist."
+            touch "$shell_profile"
+        fi
+        
+        # Add Homebrew to PATH in the shell's profile
+        if ! grep -q '/opt/homebrew/bin/brew' "$shell_profile"; then
+            echo 'Adding Homebrew to PATH in' "$shell_profile"
+            echo '# Homebrew' >> "$shell_profile"
+            echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$shell_profile"
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        fi
+        
+        if ! command -v brew &> /dev/null; then
+            echo "Failed to install Homebrew."
+            exit 1
+        fi
+    else
+        echo "Homebrew is already installed."
+    fi
+}
+
+
 # Function to check and install a package
 check_and_install_package() {
     local package_name=$1
 
-    # Check if jq is installed
+    # Check if the package is installed
     if ! command -v $package_name &> /dev/null; then
         echo "$package_name could not be found. Attempting to install."
 
         if [[ $OS == "Linux" ]]; then
             sudo apt-get update && sudo apt-get install -y $package_name
         elif [[ $OS == "macOS" ]]; then
+            # Ensure Homebrew is installed before attempting to use it
+            ensure_homebrew_installed
             brew install $package_name
         fi
 
         # Check again if package installation was successful
         if ! command -v $package_name &> /dev/null; then
             echo "Failed to install $package_name. Attempting to use local binary."
-            use_local_binary $package_name
+            # Implement or remove the use_local_binary call based on your script's capabilities
+            # use_local_binary $package_name
         else
             echo "$package_name installed successfully."
         fi
@@ -71,6 +108,7 @@ check_and_install_package() {
         echo "$package_name is already installed."
     fi
 }
+
 
 # Function to check if Solana CLI is installed
 check_solana_cli_installed() {
@@ -84,14 +122,14 @@ check_solana_cli_installed() {
             echo "Attempting to add Solana CLI to PATH automatically..."
             export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
             
-            # Add to .profile or .bash_profile for persistence across sessions
-            if ! grep -q 'solana/install/active_release/bin' "$HOME/.profile" 2>/dev/null && \
-               ! grep -q 'solana/install/active_release/bin' "$HOME/.bash_profile" 2>/dev/null; then
-                echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> "$HOME/.profile"
+            # Add to .profile or .bashrc for persistence across sessions
+            if ! grep -q 'solana/install/active_release/bin' "$PROFILE_FILE" 2>/dev/null && \
+               ! grep -q 'solana/install/active_release/bin' "$HOME/.bashrc" 2>/dev/null; then
+                echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> "$PROFILE_FILE"
             fi
 
             # Reload profile to ensure PATH update takes effect in the current session
-            source "$HOME/.profile" 2>/dev/null || source "$HOME/.bash_profile" 2>/dev/null
+            source "$PROFILE_FILE" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null
 
             echo "Solana CLI installed successfully."
         else
@@ -131,7 +169,7 @@ check_solana_cli_installed() {
             # Add to PATH if not already present
             if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
                 echo "Adding Solana CLI to PATH..."
-                echo 'export PATH=$PATH:$HOME/.local/bin' >> "$HOME/.profile"
+                echo 'export PATH=$PATH:$HOME/.local/bin' >> "$PROFILE_FILE"
                 export PATH="$PATH:$HOME/.local/bin"
             fi
 
@@ -146,7 +184,7 @@ check_solana_cli_installed() {
             echo "Solana CLI installed successfully using pre-built binaries."
         fi
     else
-        echo "Solana CLI is already installed."
+        echo "Solana CLI is installed."
     fi
 }
 
