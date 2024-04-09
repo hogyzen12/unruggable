@@ -228,7 +228,7 @@ check_and_create_token_files() {
     # Check if the nft file exists
     if [ ! -f "$NFT_FILE" ]; then
         echo "nfts not located. Initializing."
-        mv nfts.txt "$UNRUGGABLE_FOLDER"
+        cp nfts.txt "$UNRUGGABLE_FOLDER"
 
         if [ $? -eq 0 ]; then
             echo "nft book initialized successfully."
@@ -243,7 +243,7 @@ check_and_create_token_files() {
     # Check if the token file exists
     if [ ! -f "$TOKENS_FILE" ]; then
         echo "tokens not located. Initializing."
-        mv tokens.txt "$UNRUGGABLE_FOLDER"
+        cp tokens.txt "$UNRUGGABLE_FOLDER"
 
         if [ $? -eq 0 ]; then
             echo "token book initialized successfully."
@@ -586,7 +586,7 @@ send_sol() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
+                    nft_info=$(grep -i "$mint_address" $NFT_FILE)
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1573,7 +1573,7 @@ show_balance() {
 fetch_sol_usd_price() {
     # Fetch the price data
     price_data=$(curl -s 'https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000&slippageBps=1')
-
+    sleep 0.01
     # Parse the JSON response to extract the price per 1 SOL (since we requested 1 million lamports, which is 1 SOL)
     if command -v jq &> /dev/null; then
         sol_usd_price=$(echo "$price_data" | jq -r '.outAmount' | awk '{print $1/1000}')
@@ -1610,6 +1610,7 @@ fetch_token_usd_price() {
     # Fetch the price data for the token
     price_data=$(curl -s "https://quote-api.jup.ag/v6/quote?inputMint=$token_mint&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=$amount&slippageBps=1")
     token_usd_price=$(echo "$price_data" | jq -r '.outAmount' | awk -v dec="$decimals" '{print ($1 / (10^6))}')
+    sleep 0.01
     
     echo "$token_usd_price"
     
