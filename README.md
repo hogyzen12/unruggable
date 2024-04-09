@@ -61,7 +61,7 @@ unruggable
 ![0 - Receive](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/rec.gif)
 
 #### Option 2: Send Tokens
-![2 - Send Tokens]()
+![2 - Send Tokens](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/sendTokens.gif)
 
 #### Option 3: Display and Send NFTs
 ![3 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/NFTs.gif)
@@ -70,7 +70,11 @@ unruggable
 ![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/switch.gif)
 
 #### Option 7: New wallet Keygen
-![7 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/keygen.gif)
+- **Vanity**:
+![71 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/vanity.gif)
+
+- **Mnemonic**:
+![72 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/menmonic.gif)
 
 #### Option 8: Set Custom RPC
 ![8 - Switch RPC](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/RPC.gif)
