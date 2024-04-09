@@ -12,9 +12,6 @@ SCRIPT_NAME="unruggable"
 SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
 SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
 
-#qrencode has binaries ready
-#jq build from source tarball
-
 # Function to detect the operating system
 detect_os() {
     case "$(uname -s)" in
@@ -47,7 +44,6 @@ detect_processor() {
 }
 
 # Function to ensure Homebrew is installed on macOS
-# Function to ensure Homebrew is installed on macOS
 ensure_homebrew_installed() {
     if ! command -v brew &> /dev/null; then
         echo "Homebrew not found. Installing Homebrew..."
@@ -67,7 +63,7 @@ ensure_homebrew_installed() {
             echo 'Adding Homebrew to PATH in' "$shell_profile"
             echo '# Homebrew' >> "$shell_profile"
             echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$shell_profile"
-            eval "$(/opt/homebrew/bin/brew shellenv)"
+            source $shell_profile
         fi
         
         if ! command -v brew &> /dev/null; then
@@ -99,7 +95,7 @@ check_and_install_package() {
         # Check again if package installation was successful
         if ! command -v $package_name &> /dev/null; then
             echo "Failed to install $package_name. Attempting to use local binary."
-            # Implement or remove the use_local_binary call based on your script's capabilities
+            # Package binaries here/download
             # use_local_binary $package_name
         else
             echo "$package_name installed successfully."
@@ -117,19 +113,32 @@ check_solana_cli_installed() {
 
         # Attempt to install using the official Solana install script
         if sh -c "$(curl -sSfL https://release.solana.com/v1.18.4/install)"; then
-            # Attempt to automatically add Solana to PATH using the suggestion from the install script
-            # This assumes the install script provides a line to export PATH
             echo "Attempting to add Solana CLI to PATH automatically..."
-            export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-            
-            # Add to .profile or .bashrc for persistence across sessions
-            if ! grep -q 'solana/install/active_release/bin' "$PROFILE_FILE" 2>/dev/null && \
-               ! grep -q 'solana/install/active_release/bin' "$HOME/.bashrc" 2>/dev/null; then
-                echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> "$PROFILE_FILE"
+
+            # Determine which profile file to use based on file existence
+            if [ -f "$HOME/.zshrc" ]; then
+                PROFILE_FILE="$HOME/.zshrc"
+            elif [ -f "$HOME/.bashrc" ]; then
+                PROFILE_FILE="$HOME/.bashrc"
+            else
+                echo "No .zshrc or .bashrc file found. Defaulting to .bashrc and creating it if necessary."
+                PROFILE_FILE="$HOME/.bashrc"
+                touch "$HOME/.bashrc"  # Create .bashrc if it doesn't exist
             fi
 
+            # Add Solana to PATH in the determined profile file
+            if ! grep -q 'solana/install/active_release/bin' "$PROFILE_FILE" 2>/dev/null; then
+                echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> "$PROFILE_FILE"
+                echo "Solana CLI path added to $PROFILE_FILE"
+            fi
+
+            # Attempt to automatically add Solana to PATH for the current session
+            export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+
             # Reload profile to ensure PATH update takes effect in the current session
-            source "$PROFILE_FILE" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null
+            source "$PROFILE_FILE" 2>/dev/null || {
+                echo "Failed to reload $PROFILE_FILE. You may need to open a new terminal or manually source your profile file."
+            }
 
             echo "Solana CLI installed successfully."
         else
