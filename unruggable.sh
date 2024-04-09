@@ -348,6 +348,7 @@ run_pre_launch_checks() {
 
     # Check and install curl, jq and qrencode
     check_and_install_package "curl"
+    check_and_install_package "bc"
     check_and_install_package "jq"
     check_and_install_package "qrencode"
     
