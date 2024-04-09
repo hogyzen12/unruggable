@@ -67,7 +67,7 @@ unruggable
 ![3 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/NFTs.gif)
 
 #### Option 4: Display Available Wallets and Switch
-![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/Wallets.gif)
+![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/switch.gif)
 
 #### Option 7: New wallet Keygen
 ![7 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/keygen.gif)
