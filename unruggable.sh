@@ -4,6 +4,8 @@
 RPC="https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
 UNRUGGABLE_FOLDER="$HOME/.config/solana/unrugabble"
 ADDRESS_BOOK_FILE="$HOME/.config/solana/unrugabble/addressBook.txt"
+NFT_FILE="$HOME/.config/solana/unrugabble/nfts.txt"
+TOKENS_FILE="$HOME/.config/solana/unrugabble/tokens.txt"
 UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unrgbpN7XGMQKbbnMYoqvoFbcnVKcaaXVJD2vSrmnUJ.json"
 CONFIG_FILE="$HOME/.config/solana/cli/config.yml"
 UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
@@ -222,14 +224,46 @@ check_and_create_unrugabble_folder() {
     fi
 }
 
+check_and_create_token_files() {
+    # Check if the nft file exists
+    if [ ! -f "$NFT_FILE" ]; then
+        echo "nfts not located. Initializing."
+        mv nfts.txt "$UNRUGGABLE_FOLDER"
+
+        if [ $? -eq 0 ]; then
+            echo "nft book initialized successfully."
+        else
+            echo "Error: Failed to initialize $NFT_FILE."
+            exit 1
+        fi
+    else
+        echo "Address book found. Check passed."
+    fi
+
+    # Check if the token file exists
+    if [ ! -f "$TOKENS_FILE" ]; then
+        echo "tokens not located. Initializing."
+        mv tokens.txt "$UNRUGGABLE_FOLDER"
+
+        if [ $? -eq 0 ]; then
+            echo "token book initialized successfully."
+        else
+            echo "Error: Failed to initialize $TOKENS_FILE."
+            exit 1
+        fi
+    else
+        echo "Address book found. Check passed."
+    fi
+
+            
+
+}
+
 check_and_create_address_book() {
     # Check if the address book file exists
     if [ ! -f "$ADDRESS_BOOK_FILE" ]; then
         echo "Address book not found. Initializing with devs cat treat wallet."
-
-        # Assuming you want to initialize the address book with a specific entry
-        # Here, you might want to replace the placeholder with actual content
-        # For example, an initial wallet address and a label
+        # Initialise the address book
         echo "juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp dev-cat-snacks" > "$ADDRESS_BOOK_FILE"
 
         if [ $? -eq 0 ]; then
@@ -323,6 +357,7 @@ run_pre_launch_checks() {
 
     check_and_create_unrugabble_folder
     check_and_create_address_book
+    check_and_create_token_files
     ensure_script_location_and_executability
     echo "All checks passed. Launching Unruggable..."
 }
@@ -535,7 +570,7 @@ send_sol() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    token_info=$(grep -i "$mint_address" tokens.txt)
+                    token_info=$(grep -i "$mint_address" "$TOKENS_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$token_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -550,7 +585,7 @@ send_sol() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" nfts.txt)
+                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -653,7 +688,7 @@ display_tokens_and_send() {
 
     # Process each owned mint for tokens using process substitution
     while IFS= read -r mint_address; do
-        token_info=$(grep -i "$mint_address" tokens.txt)
+        token_info=$(grep -i "$mint_address" "$TOKENS_FILE")
         if [ ! -z "$token_info" ]; then
             token_name=$(echo "$token_info" | awk -F, '{print $2}')
             balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -804,7 +839,7 @@ display_tokens_and_send() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    token_info=$(grep -i "$mint_address" tokens.txt)
+                    token_info=$(grep -i "$mint_address" "$TOKENS_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$token_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -819,7 +854,7 @@ display_tokens_and_send() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" nfts.txt)
+                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -882,7 +917,7 @@ display_nfts() {
 
     # Process each owned mint for tokens using process substitution
     while IFS= read -r mint_address; do
-        token_info=$(grep -i "$mint_address" nfts.txt)
+        token_info=$(grep -i "$mint_address" "$NFT_FILE")
         if [ ! -z "$token_info" ]; then
             token_name=$(echo "$token_info" | awk -F, '{print $2}')
             balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1029,7 +1064,7 @@ display_nfts() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    token_info=$(grep -i "$mint_address" tokens.txt)
+                    token_info=$(grep -i "$mint_address" "$TOKENS_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$token_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1044,7 +1079,7 @@ display_nfts() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" nfts.txt)
+                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1557,9 +1592,9 @@ fetch_token_usd_price() {
     fi
 
     # Extract the decimal places for the token
-    token_info=$(grep "$token_mint" tokens.txt)
+    token_info=$(grep "$token_mint" "$TOKENS_FILE")
     if [[ -z "$token_info" ]]; then
-        echo "Error: Token mint not found in tokens.txt."
+        echo "Error: Token mint not found."
         return 1
     fi
 
@@ -1586,7 +1621,7 @@ fetch_token_balances() {
     local total_usd=0
 
     while IFS= read -r mint_address; do
-        local token_info=$(grep -i "$mint_address" tokens.txt)
+        local token_info=$(grep -i "$mint_address" "$TOKENS_FILE")
         if [ ! -z "$token_info" ]; then
             local token_name=$(echo "$token_info" | awk -F, '{print $2}')
             local balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
