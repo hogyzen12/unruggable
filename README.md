@@ -54,15 +54,24 @@ After installation, you can run Unruggable in your terminal simply by typing:
 ```bash
 unruggable
 ```
-![1 - Receive](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/rec.gif)
 
+## Demo
 
-## Adding Images or GIFs to the README
+#### Option 0: Receive
+![0 - Receive](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/rec.gif)
 
-To make this guide even more user-friendly, consider adding screenshots or GIFs for critical steps. Here's how you can embed an image or GIF in your README file:
+#### Option 2: Send Tokens
+![2 - Send Tokens]()
 
-```markdown
-![Alt text for the image](URL_to_image_or_GIF)
-```
+#### Option 3: Display and Send NFTs
+![3 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/NFTs.gif)
 
-Replace `URL_to_image_or_GIF` with the actual URL where your image or GIF is hosted. You can use services like Imgur, GitHub's own hosting (by uploading to your repository), or any other image hosting service you prefer.
+#### Option 4: Display Available Wallets and Switch
+![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/Wallets.gif)
+
+#### Option 7: New wallet Keygen
+![7 - Create New Wallet](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/keygen.gif)
+
+#### Option 8: Set Custom RPC
+![8 - Switch RPC](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/RPC.gif)
+
