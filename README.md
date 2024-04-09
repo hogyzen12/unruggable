@@ -56,6 +56,9 @@ unruggable
 ```
 
 ## Demo
+#### Integrations: Executing JUP swaps with Jito
+![CALYPSO](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/calypso.gif)
+
 
 #### Option 0: Receive
 ![0 - Receive](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/rec.gif)
@@ -68,6 +71,9 @@ unruggable
 
 #### Option 4: Display Available Wallets and Switch
 ![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/switch.gif)
+
+#### Option 5: Stake SOL
+![4 - Display Available Wallets and Switch](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/stakoor.gif)
 
 #### Option 7: New wallet Keygen
 - **Vanity**:
