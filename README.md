@@ -54,6 +54,7 @@ After installation, you can run Unruggable in your terminal simply by typing:
 ```bash
 unruggable
 ```
+![1 - Receive](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/rec.gif)
 
 
 ## Adding Images or GIFs to the README
