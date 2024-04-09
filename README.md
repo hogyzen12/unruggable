@@ -56,8 +56,13 @@ unruggable
 ```
 
 ## Demo
+**CALYPSO**
 #### Integrations: Executing JUP swaps with Jito
 ![CALYPSO](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/calypso.gif)
+
+**HERMES**
+#### Integrations: Executing transfers swaps with Jito
+![CALYPSO](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/HERMES.gif)
 
 
 #### Option 0: Receive
