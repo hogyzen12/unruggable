@@ -8,9 +8,9 @@ This will guide you in setting up Unruggable on your computer and beginning your
 Before we begin, make sure you have the following:
 
 - Internet connection
-- 10 minutes of free time
+- 3 minutes of free time
 
-Unruggable is sompatible with nearly any Operating System, Windows, MacOS or Linux.
+Unruggable is compatible with nearly any Operating System, Windows, MacOS or Linux.
 WSL2 will be needed if you will be using Windows. 
 WSL2 is a Linux environment within Windows, developed and supported by Microsoft.
 
@@ -21,7 +21,7 @@ https://learn.microsoft.com/en-us/windows/wsl/install
 https://www.omgubuntu.co.uk/how-to-install-wsl2-on-windows-10
 
 TL;DR
-There is a simple way to get WSL2 up and running on your Windows PC.
+There is a simple way to get WSL2 on your Windows PC.
 Open up Powershell (start button, search powershell, right click, open as administrator).
 Once open simply paste:
 wsl --install
