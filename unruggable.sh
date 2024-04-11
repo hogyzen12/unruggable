@@ -501,9 +501,10 @@ receive_sol() {
     wallet_address=$(solana address)
     
     echo "Scan this QR code to receive SOL at address:" 
-    print_colored_address $wallet_address
-    echo ""
-    #echo $wallet_address
+    echo $wallet_address
+    #print_colored_address $wallet_address
+    #echo ""
+    
     # Generate and display the QR code
     qrencode -t UTF8 "$wallet_address"
     
