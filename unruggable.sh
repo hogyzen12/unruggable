@@ -13,6 +13,8 @@ DEFAULT_KEYS_DIR="$HOME/.config/solana"
 SCRIPT_NAME="unruggable"
 SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
 SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
+CALYPSO_FOLDER="$HOME/.config/solana/unrugabble/calypso"
+PANTHEON=("calypso.js" "hermes.js" "hermesSpl.js")
 
 # Function to detect the operating system
 detect_os() {
@@ -254,9 +256,47 @@ check_and_create_token_files() {
     else
         echo "Address book found. Check passed."
     fi
+}
 
-            
+check_and_create_calypso_folder() {
+    # Check if the CALYPSO_FOLDER exists
+    if [ ! -d "$CALYPSO_FOLDER" ]; then
+        echo "Calypso folder not found. Initializing."
 
+        # Attempt to copy the calypso directory from the source to the target location
+        cp -r calypso "$CALYPSO_FOLDER"
+
+        # Check if the copy operation was successful
+        if [ $? -eq 0 ]; then
+            echo "Calypso folder initialized successfully."
+        else
+            echo "Error: Failed to initialize the Calypso folder."
+            exit 1
+        fi
+    else
+        echo "Calypso folder already exists. Check passed."
+    fi
+
+    # Loop through the list of required files
+    for file in "${PANTHEON[@]}"; do
+        # Check if each file exists in the CALYPSO_FOLDER
+        if [ ! -f "$CALYPSO_FOLDER/$file" ]; then
+            echo "$file not found in Calypso folder. Copying..."
+
+            # Attempt to copy the missing file from the source calypso/ directory
+            cp "calypso/$file" "$CALYPSO_FOLDER/"
+
+            # Check if the copy operation was successful
+            if [ $? -eq 0 ]; then
+                echo "$file copied successfully."
+            else
+                echo "Error: Failed to copy $file to the Calypso folder."
+                exit 1
+            fi
+        else
+            echo "$file check passed."
+        fi
+    done
 }
 
 check_and_create_address_book() {
@@ -329,7 +369,13 @@ ensure_script_location_and_executability() {
             echo "Alias for '$SCRIPT_NAME' already exists in $PROFILE_FILE."
         fi
 
-        create_and_set_custom_solana_config
+        # Extract the current RPC URL
+        current_rpc=$(echo "$config_output" | grep 'RPC URL' | awk '{print $3}')
+
+        # Check if the current RPC URL is different from the expected one and if the UNRUGGABLE_WALLET file does not exist
+        if [[ "$current_rpc" != "$RPC" ]] && [[ ! -f "$UNRUGGABLE_WALLET" ]]; then
+            create_and_set_custom_solana_config
+        fi
 
         echo "Unruggable has been succesfully set up."
         echo "Open any terminal and simply type unruggable to start the wallet."
@@ -359,6 +405,7 @@ run_pre_launch_checks() {
     check_and_create_unrugabble_folder
     check_and_create_address_book
     check_and_create_token_files
+    check_and_create_calypso_folder
     ensure_script_location_and_executability
     echo "All checks passed. Launching Unruggable..."
 }
@@ -604,6 +651,7 @@ send_sol() {
 
         # Handle the case where the recipient's account is unfunded
         if [[ $recipient_balance == "0" ]]; then
+            echo "You are sending $amount SOL to Wallet: $recipient_address"
             echo "The recipient's account is unfunded."
             read -p "Do you still want to proceed with the transfer? (yes/no): " confirmation
             if [[ $confirmation != "yes" ]]; then
@@ -624,14 +672,14 @@ send_sol() {
         # Initialize a flag to track which transaction method is used
         use_hermes_flag=0
 
-        # Check for calypso/hermes.js existence
-        if [[ -d "calypso" && -f "calypso/hermes.js" ]]; then
+        # Check for calypso/hermes.js existence within CALYPSO_FOLDER
+        if [[ -d "$CALYPSO_FOLDER" && -f "$CALYPSO_FOLDER/hermes.js" ]]; then
             echo "The Hermes tool is available for transactions."
             read -p "Would you like to use the Hermes tool for this transaction? (yes/no): " use_hermes
             if [[ $use_hermes == "yes" ]]; then
                 # Execute the transaction with Hermes
                 echo "Executing transaction with Hermes..."
-                node calypso/hermes.js "$amount" "$recipient_address" "$keypair_path"
+                node "$CALYPSO_FOLDER/hermes.js" "$amount" "$recipient_address" "$keypair_path"
                 echo "Transaction completed with Hermes."
                 use_hermes_flag=1
             fi
@@ -729,6 +777,19 @@ display_tokens_and_send() {
     echo "You have selected to send $selected_token_name with balance $selected_balance."
 
     read -p "Enter the amount of $selected_token_name to send: " amount_to_send
+
+    # Extract the decimal places for the token
+    token_info=$(grep "$selected_mint_address" "$TOKENS_FILE")
+    token_decimals=$(echo "$token_info" | awk -F, '{print $3}' | xargs)
+    if [[ -z "$token_decimals" ]]; then
+        echo "Error: Decimal places for the token not found."
+        return 1
+    fi
+
+    # Extract the Keypair Path from the solana config
+    config_output=$(solana config get)
+    keypair_path=$(echo "$config_output" | grep "Keypair Path" | awk '{ print $NF }')
+    keypair_dir=$(echo "$config_output" | grep 'Keypair Path' | awk '{print $3}' | xargs dirname)
 
     # Now, implement the 'where to' structure similar to send_sol
     while true; do
@@ -856,7 +917,7 @@ display_tokens_and_send() {
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
                     nft_info=$(grep -i "$mint_address" "$NFT_FILE")
-                    if [ ! -z "$token_info" ]; then
+                    if [ ! -z "$nft_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
                         echo "Recipient owns token:  $balance $token_name"
@@ -867,12 +928,34 @@ display_tokens_and_send() {
             fi
         fi
 
-        # Assuming the address could be valid, proceed with sending logic
+        # Recipient passed all checks
         echo "Sending $selected_token_name to $recipient_address..."
         # Implement the SPL token transfer command here
-        spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address $amount_to_send $recipient_address
+        transfer_command="spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address $amount_to_send $recipient_address"
 
-        echo "Transaction completed."
+        # Initialize a flag to track which transaction method is used
+        use_hermes_flag=0
+
+        # Check for calypso/hermesSpl.js existence within CALYPSO_FOLDER
+        if [[ -d "$CALYPSO_FOLDER" && -f "$CALYPSO_FOLDER/hermesSpl.js" ]]; then
+            echo "The Hermes tool is available for transactions."
+            read -p "Would you like to use the Hermes tool for this transaction? (yes/no): " use_hermes
+            if [[ $use_hermes == "yes" ]]; then
+                # Execute the transaction with Hermes
+                echo "Executing transaction with Hermes..."
+                node "$CALYPSO_FOLDER/hermesSpl.js" "$amount_to_send" "$selected_mint_address" "$token_decimals" "$recipient_address" "$keypair_path"
+                echo "Transaction completed with Hermes."
+                use_hermes_flag=1
+            fi
+        fi
+
+        # Check if Hermes was not used, then proceed with Solana transfer
+        if [[ $use_hermes_flag -eq 0 ]]; then
+            echo "Executing transfer with Solana CLI..."
+            eval $transfer_command
+            echo "Transaction completed with Solana CLI."
+        fi
+
         # Check if the address is already in the address book
         if grep -q "$recipient_address" "$ADDRESS_BOOK_FILE"; then
             echo "This address is already in your address book."
