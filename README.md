@@ -17,8 +17,11 @@ WSL2 is a Linux environment within Windows, developed and supported by Microsoft
 #### Step 0: Windows Users only, ignore if MacOs or Ubuntu
 
 Install WSL2 following the Microsoft Guide in the link below, an alternative resource is also provided:
+--------------------------------------------------------------------
 https://learn.microsoft.com/en-us/windows/wsl/install
+--------------------------------------------------------------------
 https://www.omgubuntu.co.uk/how-to-install-wsl2-on-windows-10
+--------------------------------------------------------------------
 
 TL;DR
 There is a simple way to get WSL2 on your Windows PC.
