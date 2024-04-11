@@ -55,16 +55,10 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
 
   // SPL Token transfer
   const tokenMint = new web3.PublicKey(tokenMintAddress);
-  console.log(tokenMint)
-  console.log(fromAccount.publicKey.toString())
-  
   //Get the associated token accounts for sender and receiver
   const fromAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint, fromAccount.publicKey);
-  console.log(fromAssociatedTokenAccountPubkey.toString());
-
   const toAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint,toAccount);
-  console.log(toAssociatedTokenAccountPubkey.toString());
-
+  
   // Check if the account already exists
   const accountInfo = await connection.getAccountInfo(toAssociatedTokenAccountPubkey);
   if (!accountInfo) {
@@ -76,12 +70,6 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
         toAccount,
         tokenMint,
       ),
-    );
-  } else {
-    // The account already exists
-    console.log(
-      'Associated token account already exists:',
-      toAssociatedTokenAccountPubkey.toString(),
     );
   }
 
