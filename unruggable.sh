@@ -239,8 +239,29 @@ check_and_create_token_files() {
             exit 1
         fi
     else
-        echo "Address book found. Check passed."
+        echo "NFTs files found. Check passed."
     fi
+
+    # Read and store the index from the first line of the file
+    # Parallelising searches with grep to speed it up
+    declare -a index_keys
+    declare -a index_ranges
+    index_line=$(sed -n '1p' $NFT_FILE | sed 's/Index: //')
+    IFS=';' read -ra ADDR <<< "$index_line"
+    current_line=2
+
+    for i in "${ADDR[@]}"; do
+        IFS=':' read -r char lines <<< "$i"
+        if ! [[ $lines =~ ^[0-9]+$ ]]; then
+            echo "Error: Non-numeric line count '$lines' for character '$char'"
+            continue
+        fi
+        # Calculate the ending line number based on the starting line and number of lines
+        end_line=$(($current_line + lines - 1))
+        index_keys+=("$char")
+        index_ranges+=("$current_line-$end_line")
+        current_line=$(($end_line + 1))  # Update the starting line for the next character
+    done
 
     # Check if the token file exists
     if [ ! -f "$TOKENS_FILE" ]; then
@@ -254,7 +275,7 @@ check_and_create_token_files() {
             exit 1
         fi
     else
-        echo "Address book found. Check passed."
+        echo "Token file found. Check passed."
     fi
 }
 
@@ -494,7 +515,17 @@ print_colored_address() {
     done
 }
 
-
+# Function to find the range for a given first character
+get_range_for_char() {
+    local char=$1
+    for i in "${!index_keys[@]}"; do
+        if [[ "${index_keys[$i]}" == "$char" ]]; then
+            echo "${index_ranges[$i]}"
+            return
+        fi
+    done
+    echo ""
+}
 
 receive_sol() {
     # Fetch the current wallet address
@@ -634,7 +665,9 @@ send_sol() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" $NFT_FILE)
+                    first_char=${mint_address:0:1}
+                    range=$(get_range_for_char "$first_char")
+                    nft_info=$(sed -n "${range}p" $NFT_FILE | grep -i "$mint_address")
                     if [ ! -z "$token_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -917,7 +950,9 @@ display_tokens_and_send() {
             if [ -n "$owned_mints" ]; then
                 # Process each owned mint for tokens
                 echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
+                    first_char=${mint_address:0:1}
+                    range=$(get_range_for_char "$first_char")
+                    nft_info=$(sed -n "${range}p" $NFT_FILE | grep -i "$mint_address")
                     if [ ! -z "$nft_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1002,7 +1037,9 @@ display_nfts() {
 
     # Process each owned mint for tokens using process substitution
     while IFS= read -r mint_address; do
-        token_info=$(grep -i "$mint_address" "$NFT_FILE")
+        first_char=${mint_address:0:1}
+        range=$(get_range_for_char "$first_char")
+        token_info=$(sed -n "${range}p" $NFT_FILE | grep -i "$mint_address")
         if [ ! -z "$token_info" ]; then
             token_name=$(echo "$token_info" | awk -F, '{print $2}')
             balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
@@ -1155,17 +1192,10 @@ display_nfts() {
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
                         echo "Recipient owns token:  $balance $token_name"
                     fi
-                done
-            else
-                echo ""
-            fi
-
-            # Check if owned_mints is not empty
-            if [ -n "$owned_mints" ]; then
-                # Process each owned mint for tokens
-                echo "$owned_mints" | while read -r mint_address; do
-                    nft_info=$(grep -i "$mint_address" "$NFT_FILE")
-                    if [ ! -z "$token_info" ]; then
+                    first_char=${mint_address:0:1}
+                    range=$(get_range_for_char "$first_char")
+                    nft_info=$(sed -n "${range}p" $NFT_FILE | grep -i "$mint_address")
+                    if [ ! -z "$nft_info" ]; then
                         token_name=$(echo "$nft_info" | awk -F, '{print $2}')
                         balance=$(echo "$output" | jq -r --arg mint_address "$mint_address" '.accounts[] | select(.mint == $mint_address) | .tokenAmount.uiAmountString')
                         echo "Recipient owns token:  $balance $token_name"
