@@ -23,8 +23,8 @@ https://learn.microsoft.com/en-us/windows/wsl/install
 https://www.omgubuntu.co.uk/how-to-install-wsl2-on-windows-10
 --------------------------------------------------------------------
 
-TL;DR
-There is a simple way to get WSL2 on your Windows PC.
+**TL;DR - if u lazy to read**
+Get WSL2 on your Windows PC.
 Open up Powershell (start button, search powershell, right click, open as administrator).
 Once open simply paste:
 wsl --install
