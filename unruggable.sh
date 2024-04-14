@@ -81,29 +81,25 @@ ensure_homebrew_installed() {
 
 # Function to install Node.js version 16 and npm using nvm
 install_node_npm() {
-    # Check if nvm command is available
+    # Define NVM_DIR
+    export NVM_DIR="$HOME/.nvm"
+
+    # Source nvm if it's already installed, to make it available in this script
+    if [ -s "$NVM_DIR/nvm.sh" ]; then
+        \. "$NVM_DIR/nvm.sh"
+        \. "$NVM_DIR/bash_completion"
+    fi
+
+    # Check if nvm command is available, install if not
     if ! command -v nvm &> /dev/null; then
         echo "nvm not found. Installing nvm..."
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
-        
-        # Source the nvm script to use it in the current session
-        export NVM_DIR="$HOME/.nvm"
+        # Source nvm scripts to make it available in the current session
         [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
         [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-        # The script's path needs to be sourced manually if it's the first installation
-        if [[ -s "$HOME/.bashrc" ]]; then
-            . "$HOME/.bashrc"
-        elif [[ -s "$HOME/.bash_profile" ]]; then
-            . "$HOME/.bash_profile"
-        elif [[ -s "$HOME/.zshrc" ]]; then
-            . "$HOME/.zshrc"
-        elif [[ -s "$HOME/.profile" ]]; then
-            . "$HOME/.profile"
-        fi
     fi
 
-    # Now check again if nvm is available after sourcing the profile
+    # Now check again if nvm is available after installation and sourcing
     if ! command -v nvm &> /dev/null; then
         echo "nvm installation failed or nvm is not sourced properly."
         return 1
@@ -117,6 +113,7 @@ install_node_npm() {
 
     echo "Node.js and npm have been installed successfully."
 }
+
 
 # Function to check and update the current directory with the latest git version
 check_and_update_git() {
