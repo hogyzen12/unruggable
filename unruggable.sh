@@ -283,6 +283,9 @@ check_and_create_calypso_folder() {
     # Check if the CALYPSO_FOLDER exists
     if [ ! -d "$CALYPSO_FOLDER" ]; then
         echo "Calypso folder not found. Initializing."
+        cd calypso
+        npm install
+        cd ..
 
         # Attempt to copy the calypso directory from the source to the target location
         cp -r calypso "$CALYPSO_FOLDER"
@@ -404,6 +407,34 @@ ensure_script_location_and_executability() {
     fi
 }
 
+# Function to initialize prices
+init_prices() {
+    local IFS=$'\n'  # Set IFS to newline for proper array population
+    local lines=($(<"$TOKENS_FILE"))  # Read entire file into an array
+    local updated_lines=()
+    local line_count=${#lines[@]}
+    local index=0
+
+    for line in "${lines[@]}"; do
+        local mint=$(echo "$line" | cut -d',' -f1)
+        local name=$(echo "$line" | cut -d',' -f2)
+        local decimals=$(echo "$line" | cut -d',' -f3)
+        local price=$(echo "$line" | cut -d',' -f4)
+        if [[ "$price" == "0" ]]; then
+            local amount=$(echo "1 * 10^$decimals" | bc)
+            local price_data=$(curl -s "https://quote-api.jup.ag/v6/quote?inputMint=$mint&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=$amount&slippageBps=1")
+            sleep 0.01
+            price=$(echo "$price_data" | jq -r '.outAmount' | awk -v dec="$decimals" '{print ($1 / (10^6))}')
+        fi
+        # Update the line with the new price
+        updated_lines[index]="$mint,$name,$decimals,$price"
+        ((index++))
+    done
+
+    # Write updated content back to the file
+    printf "%s\n" "${updated_lines[@]}" > "$TOKENS_FILE"
+}
+
 
 # Function to run all pre-launch checks
 run_pre_launch_checks() {
@@ -428,6 +459,7 @@ run_pre_launch_checks() {
     check_and_create_token_files
     check_and_create_calypso_folder
     ensure_script_location_and_executability
+    init_prices
     echo "All checks passed. Launching Unruggable..."
 }
 
@@ -1031,6 +1063,10 @@ display_nfts() {
         return
     fi
 
+    # Extract the Keypair Path from the solana config
+    config_output=$(solana config get)
+    keypair_path=$(echo "$config_output" | grep "Keypair Path" | awk '{ print $NF }')
+
     echo "--------------------------------------------------------------------------------"
     echo "|                               NFTs                                           |"
     echo "--------------------------------------------------------------------------------"
@@ -1207,11 +1243,39 @@ display_nfts() {
         fi
 
         # Assuming the address could be valid, proceed with sending logic
+        #echo "Sending $selected_token_name to $recipient_address..."
+        # Implement the SPL token transfer command here
+        #spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address "1" $recipient_address
+        #echo "Transaction completed."
+
+        # Recipient passed all checks
         echo "Sending $selected_token_name to $recipient_address..."
         # Implement the SPL token transfer command here
-        spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address "1" $recipient_address
+        transfer_command="spl-token transfer --fund-recipient --allow-unfunded-recipient $selected_mint_address "1" $recipient_address"
 
-        echo "Transaction completed."
+        # Initialize a flag to track which transaction method is used
+        use_hermes_flag=0
+
+        # Check for calypso/hermesSpl.js existence within CALYPSO_FOLDER
+        if [[ -d "$CALYPSO_FOLDER" && -f "$CALYPSO_FOLDER/hermesSpl.js" ]]; then
+            echo "The Hermes tool is available for transactions."
+            read -p "Would you like to use the Hermes tool for this transaction? (yes/no): " use_hermes
+            if [[ $use_hermes == "yes" ]]; then
+                # Execute the transaction with Hermes
+                echo "Executing transaction with Hermes..."
+                node "$CALYPSO_FOLDER/hermesSpl.js" "1" "$selected_mint_address" "0" "$recipient_address" "$keypair_path"
+                echo "Transaction completed with Hermes."
+                use_hermes_flag=1
+            fi
+        fi
+
+        # Check if Hermes was not used, then proceed with Solana transfer
+        if [[ $use_hermes_flag -eq 0 ]]; then
+            echo "Executing transfer with Solana CLI..."
+            eval $transfer_command
+            echo "Transaction completed with Solana CLI."
+        fi
+
         # Check if the address is already in the address book
         if grep -q "$recipient_address" "$ADDRESS_BOOK_FILE"; then
             echo "This address is already in your address book."
@@ -1687,48 +1751,53 @@ show_balance() {
 fetch_sol_usd_price() {
     # Fetch the price data
     price_data=$(curl -s 'https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000&slippageBps=1')
-    sleep 0.01
     # Parse the JSON response to extract the price per 1 SOL (since we requested 1 million lamports, which is 1 SOL)
-    if command -v jq &> /dev/null; then
-        sol_usd_price=$(echo "$price_data" | jq -r '.outAmount' | awk '{print $1/1000}')
-        echo "$sol_usd_price"
-    else
-        echo "Error: jq is not installed. Please install jq to fetch SOL/USD price."
-        return 1
-    fi
+    sol_usd_price=$(echo "$price_data" | jq -r '.outAmount' | awk '{print $1/1000}')
+    echo "$sol_usd_price"
 }
 
+# Function to fetch token USD price and update the price directly in the file
 fetch_token_usd_price() {
     local token_mint=$1
+
     # Directly return 1 for USDC and USDT
     if [[ "$token_mint" == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" ]] || [[ "$token_mint" == "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" ]]; then
         echo "1"
         return 0
     fi
 
-    # Extract the decimal places for the token
-    token_info=$(grep "$token_mint" "$TOKENS_FILE")
+    local token_info=$(grep "$token_mint" "$TOKENS_FILE")
     if [[ -z "$token_info" ]]; then
         echo "Error: Token mint not found."
         return 1
     fi
 
-    decimals=$(echo "$token_info" | awk -F, '{print $3}' | xargs)
-    if [[ -z "$decimals" ]]; then
-        echo "Error: Decimal places for the token not found."
-        return 1
+    local decimals=$(echo "$token_info" | awk -F, '{print $3}' | xargs)
+    local price=$(echo "$token_info" | awk -F, '{print $4}' | xargs)
+
+    # Check when the TOKENS_FILE was last updated
+    local last_mod=$(date -r "$TOKENS_FILE" +%s)
+    local now=$(date +%s)
+    local diff=$(( (now - last_mod) / 60 ))  # Time difference in minutes
+
+    # If more than 5 minutes or price is zero, update the price
+    if [[ "$price" == "0" ]] || [[ $diff -gt 5 ]]; then
+        local amount=$(echo "1 * 10^$decimals" | bc)
+        local price_data=$(curl -s "https://quote-api.jup.ag/v6/quote?inputMint=$token_mint&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=$amount&slippageBps=1")
+        price=$(echo "$price_data" | jq -r '.outAmount' | awk -v dec="$decimals" '{print ($1 / (10^6))}')
+
+        # Update the price in the file directly, using sed command based on OS
+        local temp_line=$(echo "$token_info" | awk -v new_price="$price" -F, 'BEGIN{OFS=","}{$4=new_price; print}')
+        if [[ "$OS" == "macOS" ]]; then
+            sed -i '' "s|${token_info}|${temp_line}|g" "$TOKENS_FILE"
+        else
+            sed -i "s|${token_info}|${temp_line}|g" "$TOKENS_FILE"
+        fi
     fi
 
-    # Calculate the amount based on the token's decimals
-    amount=$(echo "1 * 10^$decimals" | bc)
-    # Fetch the price data for the token
-    price_data=$(curl -s "https://quote-api.jup.ag/v6/quote?inputMint=$token_mint&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=$amount&slippageBps=1")
-    token_usd_price=$(echo "$price_data" | jq -r '.outAmount' | awk -v dec="$decimals" '{print ($1 / (10^6))}')
-    sleep 0.01
-    
-    echo "$token_usd_price"
-    
+    echo "$price"
 }
+
 
 fetch_token_balances() {
     local wallet_address=$(solana address)

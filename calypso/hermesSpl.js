@@ -35,19 +35,22 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
 
   const toAccount = new web3.PublicKey(destinationAddress);
   const blockhash = await connection.getLatestBlockhash();
-
+  // Ensure amountToken and tokenDecimals are treated as integers
+  amountToken = parseInt(amountToken, 10);
+  tokenDecimals = parseInt(tokenDecimals, 10);
+  // Determine units based on amountToken and tokenDecimals
+  const computeUnits = (amountToken === 1 && tokenDecimals === 0) ? 29900 : 9900;
   const config = {
-    units: 9900,
+    compute: computeUnits,
     microLamports: 100000,
   };
   const computePriceIx = web3.ComputeBudgetProgram.setComputeUnitPrice({
     microLamports: config.microLamports,
   });
   const computeLimitIx = web3.ComputeBudgetProgram.setComputeUnitLimit({
-    units: config.units,
+    units: config.compute,
   });
 
-  //let instructions = []
   let instructions = [
     computePriceIx,
     computeLimitIx,
@@ -58,6 +61,7 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
   //Get the associated token accounts for sender and receiver
   const fromAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint, fromAccount.publicKey);
   const toAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint,toAccount);
+  const fromTokenBalance = await connection.getTokenAccountBalance(fromAssociatedTokenAccountPubkey);
   
   // Check if the account already exists
   const accountInfo = await connection.getAccountInfo(toAssociatedTokenAccountPubkey);
@@ -73,7 +77,7 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
     );
   }
 
-  const amount = amountToken * Math.pow(10, tokenDecimals); // Assuming the token has 9 decimal places; adjust as necessary
+  const amount = amountToken * Math.pow(10, tokenDecimals);
 
   instructions.push(
     splToken.createTransferInstruction(
@@ -99,6 +103,23 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
       lamports: 100_000, // tip
     }),
   );
+
+  /* const transaction = new web3.Transaction({
+    feePayer: fromAccount.publicKey,
+    recentBlockhash: (await connection.getRecentBlockhash()).blockhash
+  }).add(...instructions);
+  
+  // Sign the transaction with the sender's private key
+  transaction.sign(fromAccount);
+  
+  try {
+    // Send and confirm the transaction
+    const txid = await web3.sendAndConfirmTransaction(connection, transaction, [fromAccount]);
+    console.log(`Transaction ID: ${txid}`);
+    return txid;
+  } catch (error) {
+    console.error('Error sending transaction:', error);
+  } */
 
   const messageV0 = new web3.TransactionMessage({
     payerKey: fromAccount.publicKey,
