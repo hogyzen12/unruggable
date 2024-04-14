@@ -64,7 +64,7 @@ unruggable
 ![CALYPSO](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/calypso.gif)
 
 **HERMES**
-#### Integrations: Executing transfers swaps with Jito
+#### Integrations: Executing SOL, spl-token and NFT transfers with Jito
 ![CALYPSO](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/HERMES.gif)
 
 
