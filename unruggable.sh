@@ -79,6 +79,69 @@ ensure_homebrew_installed() {
     fi
 }
 
+# Function to install Node.js version 16 and npm using nvm
+install_node_npm() {
+    # Check if nvm command is available
+    if ! command -v nvm &> /dev/null; then
+        echo "nvm not found. Installing nvm..."
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+        
+        # Source the nvm script to use it in the current session
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+        # The script's path needs to be sourced manually if it's the first installation
+        if [[ -s "$HOME/.bashrc" ]]; then
+            . "$HOME/.bashrc"
+        elif [[ -s "$HOME/.bash_profile" ]]; then
+            . "$HOME/.bash_profile"
+        elif [[ -s "$HOME/.zshrc" ]]; then
+            . "$HOME/.zshrc"
+        elif [[ -s "$HOME/.profile" ]]; then
+            . "$HOME/.profile"
+        fi
+    fi
+
+    # Now check again if nvm is available after sourcing the profile
+    if ! command -v nvm &> /dev/null; then
+        echo "nvm installation failed or nvm is not sourced properly."
+        return 1
+    fi
+
+    # Install Node.js version 16
+    echo "Installing Node.js version 16..."
+    nvm install 16
+    nvm use 16
+    nvm alias default 16
+
+    echo "Node.js and npm have been installed successfully."
+}
+
+# Function to check and update the current directory with the latest git version
+check_and_update_git() {
+    # Check if the current directory is a git repository
+    if git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "This is a git repository. Checking for updates..."
+
+        # Fetch latest changes from the remote repository
+        git fetch
+        
+        # Check for differences between the current HEAD and the remote
+        LOCAL=$(git rev-parse HEAD)
+        REMOTE=$(git rev-parse @{u})
+
+        if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "Updates found. Updating and restarting the script..."
+            git pull
+            exec "$0" "$@"  # Restart the script
+        else
+            echo "Already up to date."
+        fi
+    else
+        echo "This directory is not a git repository."
+    fi
+}
 
 # Function to check and install a package
 check_and_install_package() {
@@ -442,7 +505,10 @@ run_pre_launch_checks() {
     echo "Detecting Operating System"
     detect_os
     detect_processor
-    #Use these to derive correct binary from solana
+    
+    install_node_npm    
+    # Git updates
+    check_and_update_git
 
     # Check and install curl, jq and qrencode
     check_and_install_package "curl"
