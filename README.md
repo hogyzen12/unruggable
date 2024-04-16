@@ -17,6 +17,8 @@ WSL2 is a Linux environment within Windows, developed and supported by Microsoft
 #### Step 0: Windows Users only, ignore if MacOs or Ubuntu
 
 Install WSL2 following the Microsoft Guide in the link below, an alternative resource is also provided:
+#### Integrations: Executing SOL, spl-token and NFT transfers with Jito
+![WSL2](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/WSL-install.png)
 --------------------------------------------------------------------
 https://learn.microsoft.com/en-us/windows/wsl/install
 --------------------------------------------------------------------
