@@ -16,23 +16,18 @@ WSL2 is a Linux environment within Windows, developed and supported by Microsoft
 
 #### Step 0: Windows Users only, ignore if MacOs or Ubuntu
 
-Install WSL2 following the Microsoft Guide in the link below, an alternative resource is also provided:
-#### Integrations: Executing SOL, spl-token and NFT transfers with Jito
+Install WSL2 following the instructions below, or Microsoft Guide in the link below:
+#### TL;DR - if u lazy to read**
+Open up Powershell (start button, search powershell, right click, open as administrator).
+Once open simply paste:
+wsl --install
+and press enter.
 ![WSL2](https://shdw-drive.genesysgo.net/3UgjUKQ1CAeaecg5CWk88q9jGHg8LJg9MAybp4pevtFz/WSL-install.png)
 --------------------------------------------------------------------
 https://learn.microsoft.com/en-us/windows/wsl/install
 --------------------------------------------------------------------
 https://www.omgubuntu.co.uk/how-to-install-wsl2-on-windows-10
 --------------------------------------------------------------------
-
-**TL;DR - if u lazy to read**
-Get WSL2 on your Windows PC.
-Open up Powershell (start button, search powershell, right click, open as administrator).
-Once open simply paste:
-wsl --install
-and press enter.
-
-Follow any Instructions and then launch Ubuntu, by typing Ubuntu in the windows menu.
 
 #### Step 1: Setting Up Unruggable
 
