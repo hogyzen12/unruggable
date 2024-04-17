@@ -7,6 +7,7 @@ ADDRESS_BOOK_FILE="$HOME/.config/solana/unruggable/addressBook.txt"
 NFT_FILE="$HOME/.config/solana/unruggable/nfts.txt"
 TOKENS_FILE="$HOME/.config/solana/unruggable/tokens.txt"
 UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unruggable.json"
+CONFIG_DIR="$HOME/.config/solana/cli"
 CONFIG_FILE="$HOME/.config/solana/cli/config.yml"
 UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
 DEFAULT_KEYS_DIR="$HOME/.config/solana"
@@ -168,7 +169,6 @@ check_and_install_package() {
         echo "$package_name is already installed."
     fi
 }
-
 
 # Function to check if Solana CLI is installed
 check_solana_cli_installed() {
@@ -401,31 +401,6 @@ check_and_create_address_book() {
     fi
 }
 
-create_and_set_custom_solana_config() {   
-    echo "Generating new unruggable wallet starting with unr..."
-    # Capture the output of solana-keygen grind to find the generated keypair filename
-    grind_output=$(solana-keygen grind --starts-with "unr":1)
-    # Extract the filename from the output
-    keypair_file=$(echo "$grind_output" | grep -o '[^ ]*.json')
-    mv "$keypair_file" "$UNRUGGABLE_WALLET"
-    new_wallet_address=$(solana address -k "$UNRUGGABLE_WALLET")
-    echo "Vanity keypair generation complete.  New wallet address: $new_wallet_address"
-
-    # Overwrite the config file to unruggable default
-    echo "Setting Solana config file to unruggable default..."
-    cat > "$CONFIG_FILE" <<EOF
----
-json_rpc_url: https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/
-websocket_url: ''
-keypair_path: $UNRUGGABLE_WALLET
-address_labels:
-  '11111111111111111111111111111111': System Program
-commitment: confirmed
-EOF
-
-    echo "Custom Solana configuration and keypair setup complete."
-}
-
 # Ensure the script is in the correct directory and executable
 ensure_script_location_and_executability() {
     if [ "$(basename $0)" != "$SCRIPT_NAME" ]; then
@@ -451,19 +426,10 @@ ensure_script_location_and_executability() {
             echo "alias $SCRIPT_NAME='$SCRIPT_PATH'" >> "$PROFILE_FILE"
             
             # Source the profile file to make the alias take effect immediately
-            # Note: This will only affect the current terminal session
             source "$PROFILE_FILE"
             echo "Alias added and sourced. You can now use '$SCRIPT_NAME' command."
         else
             echo "Alias for '$SCRIPT_NAME' already exists in $PROFILE_FILE."
-        fi
-
-        # Extract the current RPC URL
-        current_rpc=$(echo "$config_output" | grep 'RPC URL' | awk '{print $3}')
-
-        # Check if the current RPC URL is different from the expected one and if the UNRUGGABLE_WALLET file does not exist
-        if [[ "$current_rpc" != "$RPC" ]] && [[ ! -f "$UNRUGGABLE_WALLET" ]]; then
-            create_and_set_custom_solana_config
         fi
 
         echo "Unruggable has been succesfully set up."
@@ -471,6 +437,54 @@ ensure_script_location_and_executability() {
         #exit 0
     fi
 }
+
+create_and_set_custom_solana_config() {
+    # Check if the directory exists, if not create it
+    if [[ ! -d "$CONFIG_DIR" ]]; then
+        mkdir -p "$CONFIG_DIR"
+        echo "Configuration directory created at $CONFIG_DIR."
+        # Write the new config settings to the config file
+        echo "Setting Solana config file to unruggable default..."
+        cat > "$CONFIG_FILE" <<EOF
+---
+json_rpc_url: $RPC
+websocket_url: ''
+keypair_path: $UNRUGGABLE_WALLET
+address_labels:
+'11111111111111111111111111111111': System Program
+commitment: confirmed
+EOF
+    fi
+
+    config_output=$(solana config get)
+    # Extract the current RPC URL
+    current_rpc=$(echo "$config_output" | grep 'RPC URL' | awk '{print $3}')
+
+    # Check if the current RPC URL is the default Solana URL
+    if [[ "$current_rpc" == "https://api.mainnet-beta.solana.com" ]]; then
+        # Update the RPC URL to the hardcoded value
+        solana config set --url "$RPC"
+        echo "RPC URL updated to custom value."
+    fi
+
+    # Check if the UNRUGGABLE_WALLET file exists
+    if [[ ! -f "$UNRUGGABLE_WALLET" ]]; then
+        echo "Generating new unruggable wallet starting with 'unr'..."
+        # Capture the output of solana-keygen grind to find the generated keypair filename
+        grind_output=$(solana-keygen grind --starts-with "unr":1)
+        # Extract the filename from the output
+        keypair_file=$(echo "$grind_output" | grep -o '[^ ]*.json')
+        # Move the keypair file to the UNRUGGABLE_WALLET location
+        mv "$keypair_file" "$UNRUGGABLE_WALLET"
+        # Set the new wallet address in the config
+        new_wallet_address=$(solana address -k "$UNRUGGABLE_WALLET")
+        solana config set --keypair "$UNRUGGABLE_WALLET"
+        echo "New wallet address: $new_wallet_address"
+    fi
+
+    echo "Custom Solana configuration and keypair setup complete."
+}
+
 
 # Function to initialize prices
 init_prices() {
@@ -529,6 +543,7 @@ run_pre_launch_checks() {
     check_and_create_token_files
     check_and_create_calypso_folder
     ensure_script_location_and_executability
+    create_and_set_custom_solana_config
     init_prices
     echo "All checks passed. Launching Unruggable..."
 }
