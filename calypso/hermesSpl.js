@@ -39,7 +39,7 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
   amountToken = parseInt(amountToken, 10);
   tokenDecimals = parseInt(tokenDecimals, 10);
   // Determine units based on amountToken and tokenDecimals
-  const computeUnits = (amountToken === 1 && tokenDecimals === 0) ? 29900 : 9900;
+  const computeUnits = (amountToken === 1 && tokenDecimals === 0) ? 39900 : 9900;
   const config = {
     compute: computeUnits,
     microLamports: 100000,

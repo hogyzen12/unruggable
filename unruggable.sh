@@ -6,7 +6,7 @@ UNRUGGABLE_FOLDER="$HOME/.config/solana/unrugabble"
 ADDRESS_BOOK_FILE="$HOME/.config/solana/unrugabble/addressBook.txt"
 NFT_FILE="$HOME/.config/solana/unrugabble/nfts.txt"
 TOKENS_FILE="$HOME/.config/solana/unrugabble/tokens.txt"
-UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unrgbpN7XGMQKbbnMYoqvoFbcnVKcaaXVJD2vSrmnUJ.json"
+UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unruggable.json"
 CONFIG_FILE="$HOME/.config/solana/cli/config.yml"
 UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
 DEFAULT_KEYS_DIR="$HOME/.config/solana"
@@ -401,8 +401,16 @@ check_and_create_address_book() {
     fi
 }
 
-create_and_set_custom_solana_config() {    
-    local keypair_contents="[27,203,252,17,115,122,59,91,33,13,140,45,118,150,211,179,190,56,225,8,203,28,245,59,185,20,22,223,11,169,34,7,13,134,13,99,37,161,7,4,176,180,158,70,17,65,150,2,1,0,207,105,102,152,197,68,26,204,160,135,139,201,252,211]"
+create_and_set_custom_solana_config() {   
+    echo "Generating new unruggable wallet starting with unr..."
+    # Capture the output of solana-keygen grind to find the generated keypair filename
+    grind_output=$(solana-keygen grind --starts-with "unr":1)
+    # Extract the filename from the output
+    keypair_file=$(echo "$grind_output" | grep -o '[^ ]*.json')
+    mv "$keypair_file" "$UNRUGGABLE_WALLET"
+    new_wallet_address=$(solana address -k "$UNRUGGABLE_WALLET")
+    echo "Vanity keypair generation complete.  New wallet address: $new_wallet_address"
+
     # Overwrite the config file to unruggable default
     echo "Setting Solana config file to unruggable default..."
     cat > "$CONFIG_FILE" <<EOF
@@ -415,9 +423,6 @@ address_labels:
 commitment: confirmed
 EOF
 
-    echo "Creating custom Solana keypair file..."
-    echo "$keypair_contents" > "$UNRUGGABLE_WALLET"
-    config_output=$(solana config set -k "$UNRUGGABLE_WALLET")
     echo "Custom Solana configuration and keypair setup complete."
 }
 
@@ -621,6 +626,43 @@ get_range_for_char() {
     done
     echo ""
 }
+
+# Function to check transaction confirmation
+check_transaction_confirmation() {
+    local transaction_id=$1
+    local max_attempts=30
+    local attempt=0
+    local delay_between_attempts=10  # seconds
+
+    echo "Checking transaction status for ID: $transaction_id"
+    while [ $attempt -lt $max_attempts ]; do
+        # Increment attempt counter
+        ((attempt++))
+
+        # Check transaction confirmation
+        confirmation_output=$(solana confirm $transaction_id 2>&1)
+        echo "Attempt $attempt: $confirmation_output"
+
+        # Check if the transaction has been confirmed
+        if echo "$confirmation_output" | grep -q "Confirmed"; then
+            echo "Transaction $transaction_id confirmed successfully."
+            return 0
+        fi
+
+        # Check for any explicit failure messages (optional)
+        if echo "$confirmation_output" | grep -q "Transaction not found"; then
+            echo "Transaction $transaction_id not found. It may have failed to process."
+            return 1
+        fi
+
+        # Wait before the next attempt
+        sleep $delay_between_attempts
+    done
+
+    echo "Failed to confirm transaction $transaction_id after $max_attempts attempts."
+    return 1
+}
+
 
 receive_sol() {
     # Fetch the current wallet address
@@ -1522,6 +1564,57 @@ stake_sol() {
     esac
 }
 
+liquid_stake_sol() {
+    echo "Fetching your SOL balance..."
+    wallet_address=$(solana address)
+    # Fetch the balance and clean it by removing non-numeric characters except the decimal point
+    sol_balance=$(solana balance "$wallet_address" | grep -o '[0-9.]*')
+
+    echo "Current SOL Balance: $sol_balance SOL"
+    read -p "Enter the amount of SOL you want to liquid stake: " stake_amount
+
+    # Clean the input to ensure it's purely numeric
+    stake_amount=$(echo "$stake_amount" | grep -o '[0-9.]*')
+
+    # Basic input validation for stake amount
+    if (( $(echo "$stake_amount > $sol_balance" | bc -l) )); then
+        echo "You cannot stake more than your current balance."
+        return 1
+    elif (( $(echo "$stake_amount <= 0" | bc -l) )); then
+        echo "Please enter a positive amount of SOL to stake."
+        return 1
+    fi
+
+    # Fetch the quote for juicySOL
+    echo "Fetching the liquid staking rate for SOL to juicySOL..."
+    price_data=$(curl -s -X 'GET' \
+      'https://api.sanctum.so/v1/price?input=jucy5XJ76pHVvtPZb5TKRcGQExkwit2P5s4vY8UzmpC' \
+      -H 'accept: application/json')
+
+    juicySOL_rate=$(echo "$price_data" | jq -r '.prices[0].amount')
+    juicySOL_amount=$(echo "scale=6; $stake_amount * 1000000000 / $juicySOL_rate" | bc)
+    # Format the juicySOL amount to show 4 decimal places
+    juicySOL_amount_formatted=$(printf "%.4f" "$juicySOL_amount")
+
+    echo "--------------------------------------"
+    echo "Liquid Staking Details:"
+    echo "--------------------------------------"
+    echo "You are liquid staking: $stake_amount SOL"
+    echo "You will receive : $juicySOL_amount_formatted juicySOL"
+    echo "--------------------------------------"
+
+    echo "This is under development - will not actually execute enything"
+    read -p "Do you want to proceed with liquid staking? (yes/no): " confirm
+    if [[ $confirm == "yes" ]]; then
+        echo "Proceeding with liquid staking..."
+        echo "This feature is under development."
+    else
+        echo "Liquid staking cancelled."
+    fi
+}
+
+
+
 create_new_wallet() {
     echo "Select the type of wallet to create:"
     echo "1. Vanity Keypair"
@@ -1961,6 +2054,7 @@ draw_ui() {
     echo "|   3. Display and Send NFTs                                                   |"
     echo "|   4. Display Available Wallets and Switch                                    |"
     echo "|   5. Stake SOL                                                               |"
+    echo "|   6. Liquid Stake SOL                                                        |"
     echo "|   7. Create New Wallet                                                       |"
     echo "|   8. Set Custom RPC URL                                                      |"
     echo "|   9. Exit                                                                    |"
@@ -1981,6 +2075,7 @@ handle_input() {
         3) display_nfts ;;
         4) display_available_wallets ;;
         5) stake_sol ;;
+        6) liquid_stake_sol ;;
         7) create_new_wallet ;;
         8) set_custom_rpc ;;
         9) exit 0 ;;
