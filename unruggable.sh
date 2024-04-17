@@ -508,15 +508,17 @@ run_pre_launch_checks() {
     detect_os
     detect_processor
     
-    install_node_npm    
-    # Git updates
-    check_and_update_git
+    install_node_npm
 
     # Check and install curl, jq and qrencode
     check_and_install_package "curl"
     check_and_install_package "bc"
     check_and_install_package "jq"
     check_and_install_package "qrencode"
+    check_and_install_package "git"
+
+    # Git updates
+    check_and_update_git
     
     # Check that solana and spl-token are available
     check_solana_cli_installed
