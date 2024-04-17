@@ -2,10 +2,10 @@
 
 # Global variables
 RPC="https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
-UNRUGGABLE_FOLDER="$HOME/.config/solana/unrugabble"
-ADDRESS_BOOK_FILE="$HOME/.config/solana/unrugabble/addressBook.txt"
-NFT_FILE="$HOME/.config/solana/unrugabble/nfts.txt"
-TOKENS_FILE="$HOME/.config/solana/unrugabble/tokens.txt"
+UNRUGGABLE_FOLDER="$HOME/.config/solana/unruggable"
+ADDRESS_BOOK_FILE="$HOME/.config/solana/unruggable/addressBook.txt"
+NFT_FILE="$HOME/.config/solana/unruggable/nfts.txt"
+TOKENS_FILE="$HOME/.config/solana/unruggable/tokens.txt"
 UNRUGGABLE_WALLET="$UNRUGGABLE_FOLDER/unruggable.json"
 CONFIG_FILE="$HOME/.config/solana/cli/config.yml"
 UNRUGGABLE_STAKING="$UNRUGGABLE_FOLDER/staking_keys"
@@ -13,7 +13,7 @@ DEFAULT_KEYS_DIR="$HOME/.config/solana"
 SCRIPT_NAME="unruggable"
 SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
 SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
-CALYPSO_FOLDER="$HOME/.config/solana/unrugabble/calypso"
+CALYPSO_FOLDER="$HOME/.config/solana/unruggable/calypso"
 PANTHEON=("calypso.js" "hermes.js" "hermesSpl.js")
 
 # Function to detect the operating system
@@ -271,7 +271,7 @@ check_spl_token_cli_installed() {
     echo "spl-token cli is installed"
 }
 
-check_and_create_unrugabble_folder() {
+check_and_create_unruggable_folder() {
     if [ ! -d "$UNRUGGABLE_FOLDER" ]; then
         mkdir -p "$UNRUGGABLE_FOLDER"
         chmod 700 "$UNRUGGABLE_FOLDER"
@@ -524,7 +524,7 @@ run_pre_launch_checks() {
     check_solana_cli_installed
     check_spl_token_cli_installed
 
-    check_and_create_unrugabble_folder
+    check_and_create_unruggable_folder
     check_and_create_address_book
     check_and_create_token_files
     check_and_create_calypso_folder
