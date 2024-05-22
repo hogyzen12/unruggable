@@ -3,83 +3,89 @@ const axios = require("axios");
 const bs58 = require("bs58");
 const fs = require('fs').promises;
 
+// Create a connection to the Solana network
 const connection = new web3.Connection("https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/");
 
-async function getJupiterSwapInstructions(fromAccountPublicKey, inputMint, outputMint, amountLamports, slippageBps = 200) {
-    const quoteURL = `https://quote-api.jup.ag/v6/quote?onlyDirectRoutes=true&inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
-    const quoteResponse = await axios.get(quoteURL).then(res => res.data);
+// Function to get swap quote
+async function getSwapQuote(inputMint, outputMint, amount) {
+    try {
+        const apiUrl = 'https://api.sanctum.so/v1/swap/quote';
+        const params = {
+            input: inputMint,
+            outputLstMint: outputMint,
+            amount: amount,
+            mode: 'ExactIn'
+        };
 
-    const swapInstructionsURL = 'https://quote-api.jup.ag/v6/swap-instructions';
-    const body = {
-        userPublicKey: fromAccountPublicKey.toString(),
-        quoteResponse: quoteResponse,
-        wrapAndUnwrapSol: true,
-        prioritizationFeeLamports: 0,
-        dynamicComputeUnitLimit: true,
-    };
-
-    const response = await axios.post(swapInstructionsURL, body, {
-        headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.data) {
-        throw new Error(`Failed to get swap instructions: ${response.statusText}`);
+        const response = await axios.get(apiUrl, { params });
+        
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            throw new Error(`Failed to get swap quote. Status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error fetching swap quote:', error.message);
+        throw error;
     }
-
-    return response.data;
 }
 
-async function createSwapTransaction(fromAccount, inputMint, outputMint, amountLamports, slippageBps) {
-    const swapInstructionsResponse = await getJupiterSwapInstructions(fromAccount.publicKey, inputMint, outputMint, amountLamports, slippageBps);
+// Function to submit the swap transaction
+async function getSwapTransaction(quote, fromAccount, inputMint, connection) {
+    try {
+        const apiUrl = 'https://api.sanctum.so/v1/swap';
+        
+        // Prepare the transaction request body using inputMint dynamically
+        const txRequestBody = {
+            amount: quote.inAmount,
+            dstLstAcc: null,
+            input: inputMint, // Use the inputMint from the command line
+            mode: "ExactIn",
+            outputLstMint: quote.feeMint,
+            priorityFee: {
+                "Auto": {
+                    "max_unit_price_micro_lamports": 3000,
+                    "unit_limit": 1000000
+                }
+            },
+            quotedAmount: quote.outAmount,
+            signer: fromAccount.publicKey.toString(),
+            srcAcc: null,
+            swapSrc: quote.swapSrc
+        };
 
-    const transaction = new web3.Transaction();
-    const blockhash = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash.blockhash;
-    transaction.feePayer = fromAccount.publicKey;
+        console.log('Transaction Request Body:', JSON.stringify(txRequestBody, null, 2));
 
-    // Add compute budget instructions
-    swapInstructionsResponse.computeBudgetInstructions.forEach(instructionData => {
-        transaction.add(createTransactionInstruction(instructionData));
-    });
+        const response = await axios.post(apiUrl, txRequestBody, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
 
-    // Add setup instructions
-    swapInstructionsResponse.setupInstructions.forEach(instructionData => {
-        transaction.add(createTransactionInstruction(instructionData));
-    });
+        const txEncoded = response.data.tx;
+        console.log('Encoded Transaction:', txEncoded);
 
-    // Add the main swap instruction
-    transaction.add(createTransactionInstruction(swapInstructionsResponse.swapInstruction));
+        // Deserialize the transaction
+        const swapTransactionBuf = Buffer.from(txEncoded, 'base64');
+        const transaction = web3.VersionedTransaction.deserialize(swapTransactionBuf);
 
-    // Add cleanup instructions if any
-    if (swapInstructionsResponse.cleanupInstruction) {
-        transaction.add(createTransactionInstruction(swapInstructionsResponse.cleanupInstruction));
+        // Sign the transaction with the array of signers
+        transaction.sign([fromAccount]);
+        let swapTransaction = transaction.serialize();
+        return swapTransaction
+    } catch (error) {
+        console.error('Error fetching transaction:', error.message);
     }
-
-    transaction.sign(fromAccount);
-    return transaction.serialize();
-}
-
-// Helper function to create a TransactionInstruction from raw instruction data
-function createTransactionInstruction(instructionData) {
-    const { programId, accounts, data } = instructionData;
-    return new web3.TransactionInstruction({
-        programId: new web3.PublicKey(programId),
-        keys: accounts.map(acc => ({
-            pubkey: new web3.PublicKey(acc.pubkey),
-            isSigner: acc.isSigner,
-            isWritable: acc.isWritable
-        })),
-        data: Buffer.from(data, 'base64'), // Assuming the data is base64 encoded
-    });
 }
 
 async function createTipTransaction(fromAccount, tipAccount1, tipAccount2, amountLamports) {
-    const transaction = new web3.Transaction();
+    const tipTransaction = new web3.Transaction();
+    tipTransaction.feePayer = fromAccount.publicKey;
     const blockhash = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash.blockhash;
-    transaction.feePayer = fromAccount.publicKey;
+    tipTransaction.recentBlockhash = blockhash.blockhash;
+    tipTransaction.feePayer = fromAccount.publicKey;
 
-    transaction.add(
+    tipTransaction.add(
         web3.SystemProgram.transfer({
             fromPubkey: fromAccount.publicKey,
             toPubkey: new web3.PublicKey(tipAccount1),
@@ -92,8 +98,8 @@ async function createTipTransaction(fromAccount, tipAccount1, tipAccount2, amoun
         })
     );
 
-    transaction.sign(fromAccount);
-    return transaction.serialize();
+    tipTransaction.sign(fromAccount);
+    return tipTransaction.serialize();
 }
 
 async function sendBundle(transactions) {
@@ -117,27 +123,63 @@ async function sendBundle(transactions) {
     }
 }
 
+
+// Main function to process command line arguments and execute the swap
 async function main() {
-    const keypairPath = '/Users/hogyzen12/.config/solana/6tBou5MHL5aWpDy6cgf3wiwGGK2mR8qs68ujtpaoWrf2.json';
-    const keypairData = await fs.readFile(keypairPath, { encoding: 'utf8' });
-    const secretKey = Uint8Array.from(JSON.parse(keypairData));
-    const fromAccount = web3.Keypair.fromSecretKey(secretKey);
+    const args = process.argv.slice(2);
+    if (args.length !== 4) {
+        console.error('Usage: node poseidon.js <inputMint> <outputMint> <amount> <keypairPath>');
+        process.exit(1);
+    }
 
-    // Prepare parameters for the swap transaction
-    const inputMint = 'So11111111111111111111111111111111111111112'; // SOL mint
-    const outputMint = 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn'; // juicySOL mint
-    const amountLamports = 100000000; // Amount of lamports to swap (0.1 SOL)
-    const slippageBps = 200; // Slippage tolerance
+    const [inputMint, outputMint, amount, keypairPath] = args;
+    
+    try {
+        const keypairData = await fs.readFile(keypairPath, { encoding: 'utf8' });
+        const secretKey = Uint8Array.from(JSON.parse(keypairData));
+        const fromAccount = web3.Keypair.fromSecretKey(secretKey);
 
-    const swapTxSerialized = await createSwapTransaction(fromAccount, inputMint, outputMint, amountLamports, slippageBps);
+        const quote = await getSwapQuote(inputMint, outputMint, amount);
+        console.log('Swap Quote:', quote);
 
-    // Tip transaction
-    const tipAccount1 = "juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp";
-    const tipAccount2 = "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL";
-    const tipTxSerialized = await createTipTransaction(fromAccount, tipAccount1, tipAccount2, 10000); // 0.01 SOL to each tip account
+        // Use the quote to submit the transaction
+        const swapTxSerialized = await getSwapTransaction(quote, fromAccount, inputMint, connection);
+        // Tip transaction
+        const tipAccount1 = "juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp";
+        const tipAccount2 = "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL";
+        const tipTxSerialized = await createTipTransaction(fromAccount, tipAccount1, tipAccount2, 10000); // 0.01 SOL to each tip account
 
-    const bundleId = await sendBundle([swapTxSerialized, tipTxSerialized]);
-    console.log(`Bundle submitted with ID: ${bundleId}`);
+        const bundleId = await sendBundle([swapTxSerialized, tipTxSerialized]);
+        console.log(`Bundle submitted with ID: ${bundleId}`);
+
+    } catch (error) {
+        console.error('Failed to execute swap:', error.message);
+    }
 }
 
-main().catch(console.error);
+// Run the main function
+main();
+
+tokens = [
+    'LAinEtNLgpmCP9Rvsf5Hn8W6EhNiKLZQti1xfWMLy6X',
+    'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn',
+    'fpSoL8EJ7UA5yJxFKWk1MFiWi35w8CbH36G5B9d7DsV',
+    'pathdXw4He1Xk3eX84pDdDZnGKEme3GivBamGCVPZ5a',
+    'iceSdwqztAQFuH6En49HWwMxwthKMnGzLFQcMN3Bqhj',
+    'jucy5XJ76pHVvtPZb5TKRcGQExkwit2P5s4vY8UzmpC',
+    '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm',
+    'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v',
+    'he1iusmfkpAdwvxLNGV8Y1iSbj4rUy6yMhEA3fotn9A',        
+    'BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs',
+    'GRJQtWwdJmp5LLpy8JWjPgn5FnLyqSJGNhn5ZnCTFUwM',
+    'Comp4ssDzXcLeu2MnLuGNNFC4cmLPMng8qWHPvzAMU1h',
+    'HUBsveNpjo5pWqNkH57QzxjQASdTVXcSK7bVKTSZtcSX',        
+    'picobAEvs6w7QEknPce34wAE4gknZA9v5tTonnmHYdX',
+    'Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ',
+    'LnTRntk2kTfWEY6cVB8K9649pgJbt6dJLS1Ns1GZCWg',
+    'phaseZSfPxTDBpiVb96H4XFSD8xHeHxZre5HerehBJG',
+    'pumpkinsEq8xENVZE6QgTS93EN4r9iKvNxNALS1ooyp',
+    'pWrSoLAhue6jUxUkbWgmEy5rD9VJzkFmvfTDV5KgNuu',
+    'CgnTSoL3DgY9SFHxcLj6CgCgKKoTBr6tp4CPAEWy25DE',
+    'So11111111111111111111111111111111111111112'
+]
