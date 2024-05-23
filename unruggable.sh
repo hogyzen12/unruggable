@@ -15,7 +15,7 @@ SCRIPT_NAME="unruggable"
 SCRIPT_PATH="$UNRUGGABLE_FOLDER/$SCRIPT_NAME"
 SOLANA_RELEASES_URL="https://github.com/solana-labs/solana/releases/latest/download"
 CALYPSO_FOLDER="$HOME/.config/solana/unruggable/calypso"
-PANTHEON=("calypso.js" "hermes.js" "hermesSpl.js")
+PANTHEON=("calypso.js" "hermes.js" "hermesSpl.js" "poseidon.js")
 
 # Function to detect the operating system
 detect_os() {
@@ -107,10 +107,10 @@ install_node_npm() {
     fi
 
     # Install Node.js version 16
-    echo "Installing Node.js version 16..."
-    nvm install 16
-    nvm use 16
-    nvm alias default 16
+    echo "Installing Node.js..."
+    nvm install 18
+    nvm use 18
+    nvm alias default 18
 
     echo "Node.js and npm have been installed successfully."
 }
@@ -1586,18 +1586,22 @@ liquid_stake_sol() {
     wallet_address=$(solana address)
     # Fetch the balance and clean it by removing non-numeric characters except the decimal point
     sol_balance=$(solana balance "$wallet_address" | grep -o '[0-9.]*')
+    # Get the current config
+    config_output=$(solana config get)
+    # Extract the keypair path
+    keypair_path=$(echo "$config_output" | grep 'Keypair Path' | awk '{print $3}')
+    
 
     echo "Current SOL Balance: $sol_balance SOL"
-    read -p "Enter the amount of SOL you want to liquid stake: " stake_amount
-
+    read -p "Enter the amount of SOL you want to liquid stake: " amount
     # Clean the input to ensure it's purely numeric
-    stake_amount=$(echo "$stake_amount" | grep -o '[0-9.]*')
+    lst_amount=$(echo "$amount" | grep -o '[0-9.]*')
 
     # Basic input validation for stake amount
-    if (( $(echo "$stake_amount > $sol_balance" | bc -l) )); then
+    if (( $(echo "$lst_amount > $sol_balance" | bc -l) )); then
         echo "You cannot stake more than your current balance."
         return 1
-    elif (( $(echo "$stake_amount <= 0" | bc -l) )); then
+    elif (( $(echo "$lst_amount <= 0" | bc -l) )); then
         echo "Please enter a positive amount of SOL to stake."
         return 1
     fi
@@ -1609,22 +1613,31 @@ liquid_stake_sol() {
       -H 'accept: application/json')
 
     juicySOL_rate=$(echo "$price_data" | jq -r '.prices[0].amount')
-    juicySOL_amount=$(echo "scale=6; $stake_amount * 1000000000 / $juicySOL_rate" | bc)
+    juicySOL_amount=$(echo "scale=6; $lst_amount * 1000000000 / $juicySOL_rate" | bc)
     # Format the juicySOL amount to show 4 decimal places
     juicySOL_amount_formatted=$(printf "%.4f" "$juicySOL_amount")
 
     echo "--------------------------------------"
     echo "Liquid Staking Details:"
     echo "--------------------------------------"
-    echo "You are liquid staking: $stake_amount SOL"
+    echo "You are liquid staking: $lst_amount SOL"
     echo "You will receive : $juicySOL_amount_formatted juicySOL"
     echo "--------------------------------------"
 
-    echo "This is under development - will not actually execute enything"
-    read -p "Do you want to proceed with liquid staking? (yes/no): " confirm
-    if [[ $confirm == "yes" ]]; then
-        echo "Proceeding with liquid staking..."
-        echo "This feature is under development."
+    read -p "Do you want to proceed with liquid staking? (y/no): " confirm
+    if [[ $confirm == "y" ]]; then
+        echo "Proceeding to liquid stake..."
+
+        # Define input and output mints
+        inputMint="So11111111111111111111111111111111111111112"
+        outputMint="jucy5XJ76pHVvtPZb5TKRcGQExkwit2P5s4vY8UzmpC"
+
+        #echo "$CALYPSO_FOLDER/poseidon.js" "$inputMint" "$outputMint" "$lst_amount" "$keypair_path"
+        
+        # Call the command line tool for liquid staking
+        node "$CALYPSO_FOLDER/poseidon.js" "$inputMint" "$outputMint" "$lst_amount" "$keypair_path"
+        
+        echo "Liquid staking command executed."
     else
         echo "Liquid staking cancelled."
     fi

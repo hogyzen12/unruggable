@@ -125,61 +125,38 @@ async function sendBundle(transactions) {
 
 
 // Main function to process command line arguments and execute the swap
-async function main() {
-    const args = process.argv.slice(2);
-    if (args.length !== 4) {
-        console.error('Usage: node poseidon.js <inputMint> <outputMint> <amount> <keypairPath>');
-        process.exit(1);
-    }
-
-    const [inputMint, outputMint, amount, keypairPath] = args;
+async function poseidon(inputMint, outputMint, amount, keypairPath) {
+    const keypairData = await fs.readFile(keypairPath, { encoding: 'utf8' });
+    const secretKey = Uint8Array.from(JSON.parse(keypairData));
+    const fromAccount = web3.Keypair.fromSecretKey(secretKey);
     
-    try {
-        const keypairData = await fs.readFile(keypairPath, { encoding: 'utf8' });
-        const secretKey = Uint8Array.from(JSON.parse(keypairData));
-        const fromAccount = web3.Keypair.fromSecretKey(secretKey);
+    const quote = await getSwapQuote(inputMint, outputMint, amount);
+    console.log('Swap Quote:', quote);
 
-        const quote = await getSwapQuote(inputMint, outputMint, amount);
-        console.log('Swap Quote:', quote);
+    // Use the quote to submit the transaction
+    const swapTxSerialized = await getSwapTransaction(quote, fromAccount, inputMint, connection);
+    // Tip transaction
+    const tipAccount1 = "juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp";
+    const tipAccount2 = "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL";
+    const tipTxSerialized = await createTipTransaction(fromAccount, tipAccount1, tipAccount2, 10000); // 0.01 SOL to each tip account
 
-        // Use the quote to submit the transaction
-        const swapTxSerialized = await getSwapTransaction(quote, fromAccount, inputMint, connection);
-        // Tip transaction
-        const tipAccount1 = "juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp";
-        const tipAccount2 = "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL";
-        const tipTxSerialized = await createTipTransaction(fromAccount, tipAccount1, tipAccount2, 10000); // 0.01 SOL to each tip account
-
-        const bundleId = await sendBundle([swapTxSerialized, tipTxSerialized]);
-        console.log(`Bundle submitted with ID: ${bundleId}`);
-
-    } catch (error) {
-        console.error('Failed to execute swap:', error.message);
-    }
+    const bundleId = await sendBundle([swapTxSerialized, tipTxSerialized]);
+    console.log(`Bundle submitted with ID: ${bundleId}`);
 }
 
-// Run the main function
-main();
+const args = process.argv.slice(2);
+if (args.length !== 4) {
+    console.error('Usage: node poseidon.js <inputMint> <outputMint> <stakeamount> <keypairPath>');
+    process.exit(1);
+}
 
-tokens = [
-    'LAinEtNLgpmCP9Rvsf5Hn8W6EhNiKLZQti1xfWMLy6X',
-    'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn',
-    'fpSoL8EJ7UA5yJxFKWk1MFiWi35w8CbH36G5B9d7DsV',
-    'pathdXw4He1Xk3eX84pDdDZnGKEme3GivBamGCVPZ5a',
-    'iceSdwqztAQFuH6En49HWwMxwthKMnGzLFQcMN3Bqhj',
-    'jucy5XJ76pHVvtPZb5TKRcGQExkwit2P5s4vY8UzmpC',
-    '5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm',
-    'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v',
-    'he1iusmfkpAdwvxLNGV8Y1iSbj4rUy6yMhEA3fotn9A',        
-    'BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs',
-    'GRJQtWwdJmp5LLpy8JWjPgn5FnLyqSJGNhn5ZnCTFUwM',
-    'Comp4ssDzXcLeu2MnLuGNNFC4cmLPMng8qWHPvzAMU1h',
-    'HUBsveNpjo5pWqNkH57QzxjQASdTVXcSK7bVKTSZtcSX',        
-    'picobAEvs6w7QEknPce34wAE4gknZA9v5tTonnmHYdX',
-    'Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ',
-    'LnTRntk2kTfWEY6cVB8K9649pgJbt6dJLS1Ns1GZCWg',
-    'phaseZSfPxTDBpiVb96H4XFSD8xHeHxZre5HerehBJG',
-    'pumpkinsEq8xENVZE6QgTS93EN4r9iKvNxNALS1ooyp',
-    'pWrSoLAhue6jUxUkbWgmEy5rD9VJzkFmvfTDV5KgNuu',
-    'CgnTSoL3DgY9SFHxcLj6CgCgKKoTBr6tp4CPAEWy25DE',
-    'So11111111111111111111111111111111111111112'
-]
+const inputMint = args[0];
+const outputMint = args[1];
+const stakeamount = parseFloat(args[2]);
+const keypairPath = args[3];
+
+const lamportsPerSol = web3.LAMPORTS_PER_SOL;
+const amount = stakeamount * lamportsPerSol;
+
+// Run the function and catch any errors
+poseidon(inputMint, outputMint, amount, keypairPath).catch(console.error);
