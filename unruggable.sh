@@ -685,7 +685,8 @@ receive_sol() {
     # Fetch the current wallet address
     wallet_address=$(solana address)
     
-    echo "Scan this QR code to receive SOL at address:" 
+    echo "Scan the below QR code, or copy the below address"
+    echo "to receive Solana and or any other SPL token." 
     echo $wallet_address
     #print_colored_address $wallet_address
     #echo ""
@@ -696,6 +697,45 @@ receive_sol() {
     echo "Press any key to return to the home screen..."
     read -n 1 -s # Wait for user input before returning
 }
+
+confirm_tx() {
+    local tx_signature=$1
+    local status=""
+    local previous_status=""
+    local attempts=0
+    local max_attempts=42
+
+    while true; do
+        status=$(solana confirm "$tx_signature" 2>&1)
+
+        if echo "$status" | grep -i "Finalized" > /dev/null; then
+            echo "Transaction $tx_signature is Finalized"
+            break
+        elif echo "$status" | grep -i "Confirmed" > /dev/null; then
+            current_status="Confirmed"
+        elif echo "$status" | grep -i "Processed" > /dev/null; then
+            current_status="Processed"
+        else
+            current_status="Pending"
+        fi
+
+        if [ "$current_status" != "$previous_status" ]; then
+            echo "TX is $current_status"
+            previous_status=$current_status
+        else
+            echo "TX is $current_status"
+        fi
+
+        attempts=$((attempts + 1))
+        if [ $attempts -ge $max_attempts ]; then
+            echo "Transaction $tx_signature failed after $max_attempts attempts."
+            break
+        fi
+
+        sleep 1  # Wait for 1 second before checking again
+    done
+}
+
 
 send_sol() {
     while true; do
@@ -854,7 +894,7 @@ send_sol() {
                 echo "Transfer cancelled."
                 return
             fi
-            transfer_command="solana transfer --allow-unfunded-recipient --with-compute-unit-price 0.00001 $recipient_address $amount"
+            transfer_command="solana transfer --no-wait --allow-unfunded-recipient --with-compute-unit-price 0.00001 $recipient_address $amount"
         fi
 
         # Initialize a flag to track which transaction method is used
@@ -867,8 +907,11 @@ send_sol() {
             if [[ $use_hermes == "yes" ]]; then
                 # Execute the transaction with Hermes
                 echo "Executing transaction with Hermes..."
-                node "$CALYPSO_FOLDER/hermes.js" "$amount" "$recipient_address" "$keypair_path"
-                echo "Transaction completed with Hermes."
+                hermes_output=$(node "$CALYPSO_FOLDER/hermes.js" "$amount" "$recipient_address" "$keypair_path")
+                tx_signature=$(echo "$hermes_output")
+                #echo "Transaction completed with Hermes. Signature: $tx_signature"
+                # Confirm the transaction
+                confirm_tx "$tx_signature"
                 use_hermes_flag=1
             fi
         fi
@@ -876,10 +919,13 @@ send_sol() {
         # Check if Hermes was not used, then proceed with Solana transfer
         if [[ $use_hermes_flag -eq 0 ]]; then
             echo "Executing transfer with Solana CLI..."
-            eval $transfer_command
-            echo "Transaction completed with Solana CLI."
+            signature=$(eval $transfer_command)
+            tx_signature=$(echo "$signature" | awk '{print $2}')
+            echo $tx_signature
+            echo "Transaction completed with Solana CLI. Signature: $tx_signature"
+            confirm_tx "$tx_signature"
         fi
-        
+
         # Check if the address is already in the address book
         if grep -q "$recipient_address" "$ADDRESS_BOOK_FILE"; then
             echo "This address is already in your address book."
@@ -894,6 +940,8 @@ send_sol() {
         break
     done    
 }
+
+
 
 display_tokens_and_send() {
     # Get the current wallet address
@@ -2094,7 +2142,7 @@ draw_ui() {
 
 # Function to handle user input
 handle_input() {
-    echo -n "Enter the number of the action you want: "
+    echo -n "Enter the number of the action you want and press Enter: "
     read choice
     echo "--------------------------------------------------------------------------------"
 

@@ -1,6 +1,5 @@
 calypso/node_modules/*
 nftdata/*
 binaries/*
-dev-archive-ref-code/*
 
 .DS_Store

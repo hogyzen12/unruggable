@@ -38,7 +38,7 @@ async function createPaymentTx(amountSol, destinationAddress, keypairPath) {
   const blockhash = await connection.getLatestBlockhash();
 
   const config = {
-    units: 1000,
+    units: 10000,
     microLamports: 100000,
   };
   const computePriceIx = web3.ComputeBudgetProgram.setComputeUnitPrice({
@@ -58,12 +58,12 @@ async function createPaymentTx(amountSol, destinationAddress, keypairPath) {
     web3.SystemProgram.transfer({
       fromPubkey: fromAccount.publicKey,
       toPubkey: new web3.PublicKey("juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp"), // Unruggable tip account
-      lamports: 100_000, // tip
+      lamports: 420_000, // tip
     }),
     web3.SystemProgram.transfer({
       fromPubkey: fromAccount.publicKey,
       toPubkey: new web3.PublicKey("DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"), // Jito tip account
-      lamports: 100_000, // tip
+      lamports: 420_000, // tip
     }),
   ];
   const messageV0 = new web3.TransactionMessage({
@@ -77,7 +77,7 @@ async function createPaymentTx(amountSol, destinationAddress, keypairPath) {
   const rawTransaction = transaction.serialize();
 
   const txid = await sendTransactionJito(rawTransaction);
-  console.log(`Transaction ID: ${txid}`);
+  console.log(`${txid}`);
   return txid;
 }
 
