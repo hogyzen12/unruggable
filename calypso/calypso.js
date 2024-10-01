@@ -28,10 +28,10 @@ async function sendTransactionJito(serializedTransaction) {
 }
 
 async function getJupiterSwapInstructions(fromAccountPublicKey, inputMint, outputMint, amountLamports, slippageBps = 100) {
-    const quoteURL = `https://quote-api.jup.ag/v6/quote?onlyDirectRoutes=true&inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
+    const quoteURL = `https://public.jupiterapi.com/quote?onlyDirectRoutes=true&inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
     const quoteResponse = await (await fetch(quoteURL)).json();
 
-    const swapInstructionsURL = 'https://quote-api.jup.ag/v6/swap-instructions';
+    const swapInstructionsURL = 'https://public.jupiterapi.com/swap-instructions';
     const body = {
         userPublicKey: fromAccountPublicKey.toString(),
         quoteResponse: quoteResponse,
