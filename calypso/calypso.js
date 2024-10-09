@@ -4,7 +4,7 @@ const bs58 = require("bs58");
 const fs = require('fs').promises;
 const fetch = require('node-fetch'); // Ensure node-fetch is installed
 
-const connection = new web3.Connection("https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/");
+const connection = new web3.Connection("https://damp-fabled-panorama.solana-mainnet.quiknode.pro/APIKEY/");
 
 async function sendTransactionJito(serializedTransaction) {
     const encodedTx = bs58.encode(serializedTransaction);

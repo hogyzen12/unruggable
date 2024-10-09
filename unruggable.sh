@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Global variables
-RPC="https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
+RPC="https://mainnet.helius-rpc.com/?api-key=API"
 UNRUGGABLE_FOLDER="$HOME/.config/solana/unruggable"
 ADDRESS_BOOK_FILE="$HOME/.config/solana/unruggable/addressBook.txt"
 NFT_FILE="$HOME/.config/solana/unruggable/nfts.txt"
@@ -644,43 +644,6 @@ get_range_for_char() {
     echo ""
 }
 
-# Function to check transaction confirmation
-check_transaction_confirmation() {
-    local transaction_id=$1
-    local max_attempts=30
-    local attempt=0
-    local delay_between_attempts=10  # seconds
-
-    echo "Checking transaction status for ID: $transaction_id"
-    while [ $attempt -lt $max_attempts ]; do
-        # Increment attempt counter
-        ((attempt++))
-
-        # Check transaction confirmation
-        confirmation_output=$(solana confirm $transaction_id 2>&1)
-        echo "Attempt $attempt: $confirmation_output"
-
-        # Check if the transaction has been confirmed
-        if echo "$confirmation_output" | grep -q "Confirmed"; then
-            echo "Transaction $transaction_id confirmed successfully."
-            return 0
-        fi
-
-        # Check for any explicit failure messages (optional)
-        if echo "$confirmation_output" | grep -q "Transaction not found"; then
-            echo "Transaction $transaction_id not found. It may have failed to process."
-            return 1
-        fi
-
-        # Wait before the next attempt
-        sleep $delay_between_attempts
-    done
-
-    echo "Failed to confirm transaction $transaction_id after $max_attempts attempts."
-    return 1
-}
-
-
 receive_sol() {
     # Fetch the current wallet address
     wallet_address=$(solana address)
@@ -1182,7 +1145,7 @@ display_tokens_and_send() {
                 # Execute the transaction with Hermes
                 echo "Executing transaction with Hermes..."
                 node "$CALYPSO_FOLDER/hermesSpl.js" "$amount_to_send" "$selected_mint_address" "$token_decimals" "$recipient_address" "$keypair_path"
-                echo "Transaction completed with Hermes."
+                confirm_tx "$tx_signature"
                 use_hermes_flag=1
             fi
         fi
@@ -1530,7 +1493,7 @@ create_and_delegate_stake_account() {
         --from $keypair_path \
         --stake-authority $keypair_path --withdraw-authority $keypair_path \
         --fee-payer $keypair_path \
-        --url "https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
+        --url "https://mainnet.helius-rpc.com/?api-key=5adcfebf-b520-4bcd-92ee-b4861e5e7b5b"
 
     echo "Stake account created with ${stake_amount} SOL."
     
@@ -1542,7 +1505,7 @@ create_and_delegate_stake_account() {
     fi
 
     # Display the stake account information
-    solana stake-account "$stake_account_file" --url "https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/"
+    solana stake-account "$stake_account_file" --url "https://mainnet.helius-rpc.com/?api-key=5adcfebf-b520-4bcd-92ee-b4861e5e7b5b"
 
     echo "Stake account checked, delegating stake"
     
@@ -1654,22 +1617,22 @@ liquid_stake_sol() {
         return 1
     fi
 
-    # Fetch the quote for juicySOL
-    echo "Fetching the liquid staking rate for SOL to juicySOL..."
+    # Fetch the quote for bonkSOL
+    echo "Fetching the liquid staking rate for SOL to bonkSOL..."
     price_data=$(curl -s -X 'GET' \
-      'https://api.sanctum.so/v1/price?input=jucy5XJ76pHVvtPZb5TKRcGQExkwit2P5s4vY8UzmpC' \
+      'https://api.sanctum.so/v1/price?input=BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs' \
       -H 'accept: application/json')
 
-    juicySOL_rate=$(echo "$price_data" | jq -r '.prices[0].amount')
-    juicySOL_amount=$(echo "scale=6; $lst_amount * 1000000000 / $juicySOL_rate" | bc)
-    # Format the juicySOL amount to show 4 decimal places
-    juicySOL_amount_formatted=$(printf "%.4f" "$juicySOL_amount")
+    bonkSOL_rate=$(echo "$price_data" | jq -r '.prices[0].amount')
+    bonkSOL_amount=$(echo "scale=6; $lst_amount * 1000000000 / $bonkSOL_rate" | bc)
+    # Format the bonkSOL amount to show 4 decimal places
+    bonkSOL_amount_formatted=$(printf "%.4f" "$bonkSOL_amount")
 
     echo "--------------------------------------"
     echo "Liquid Staking Details:"
     echo "--------------------------------------"
     echo "You are liquid staking: $lst_amount SOL"
-    echo "You will receive : $juicySOL_amount_formatted juicySOL"
+    echo "You will receive : $bonkSOL_amount_formatted bonkSOL"
     echo "--------------------------------------"
 
     read -p "Do you want to proceed with liquid staking? (y/no): " confirm

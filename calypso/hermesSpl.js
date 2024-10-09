@@ -4,7 +4,7 @@ const bs58 = require("bs58");
 const fs = require('fs').promises;
 const splToken = require("@solana/spl-token");
 
-const connection = new web3.Connection("https://damp-fabled-panorama.solana-mainnet.quiknode.pro/186133957d30cece76e7cd8b04bce0c5795c164e/");
+const connection = new web3.Connection("https://mainnet.helius-rpc.com/?api-key=API");
 
 async function sendTransactionJito(serializedTransaction) {
   const encodedTx = bs58.encode(serializedTransaction);
@@ -61,7 +61,6 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
   //Get the associated token accounts for sender and receiver
   const fromAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint, fromAccount.publicKey);
   const toAssociatedTokenAccountPubkey = await splToken.getAssociatedTokenAddress(tokenMint,toAccount);
-  const fromTokenBalance = await connection.getTokenAccountBalance(fromAssociatedTokenAccountPubkey);
   
   // Check if the account already exists
   const accountInfo = await connection.getAccountInfo(toAssociatedTokenAccountPubkey);
@@ -95,12 +94,12 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
     web3.SystemProgram.transfer({
       fromPubkey: fromAccount.publicKey,
       toPubkey: new web3.PublicKey("juLesoSmdTcRtzjCzYzRoHrnF8GhVu6KCV7uxq7nJGp"), // Unruggable tip account
-      lamports: 100_000, // tip
+      lamports: 210_000, // tip
     }),
     web3.SystemProgram.transfer({
       fromPubkey: fromAccount.publicKey,
       toPubkey: new web3.PublicKey("DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"), // Jito tip account
-      lamports: 100_000, // tip
+      lamports: 210_000, // tip
     }),
   );
 
@@ -132,7 +131,7 @@ async function createPaymentTx(amountToken, tokenMintAddress, tokenDecimals, des
   const rawTransaction = transaction.serialize();
 
   const txid = await sendTransactionJito(rawTransaction);
-  console.log(`Transaction ID: ${txid}`);
+  console.log(`${txid}`);
   return txid;
 }
 
